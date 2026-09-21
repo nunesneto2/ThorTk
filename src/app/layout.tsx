@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Abo Launch",
+  title: "ThorTk",
   description: "Lançador independente de campanhas TikTok em ABO.",
 };
 
