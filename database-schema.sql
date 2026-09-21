@@ -48,6 +48,10 @@ alter table public.launch_logs enable row level security;
 
 -- A connection nunca sai pelo Data API; rotas de servidor usam a service role.
 revoke all on table public.tiktok_connections from anon, authenticated;
+create policy "Connections stay server-only" on public.tiktok_connections for select to authenticated using (false);
+
+create index launch_jobs_user_id_idx on public.launch_jobs (user_id);
+create index launch_logs_launch_job_id_idx on public.launch_logs (launch_job_id);
 
 create policy "Users can read their launch jobs" on public.launch_jobs for select to authenticated using ((select auth.uid()) = user_id);
 create policy "Users can create their launch drafts" on public.launch_jobs for insert to authenticated with check ((select auth.uid()) = user_id and status = 'draft');
