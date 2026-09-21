@@ -66,7 +66,7 @@ export default function Home() {
       <div className="noise" />
       <header className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#080d13]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#ffd90a] text-[#080d13] shadow-[0_0_28px_rgba(255,217,10,0.22)]"><Rocket size={21} strokeWidth={2.4} /></div><div><p className="text-sm font-extrabold tracking-tight text-white">Abo Launch</p><p className="text-xs text-slate-400">Operação TikTok independente</p></div></div>
+            <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#ffd90a] text-[#080d13] shadow-[0_0_28px_rgba(255,217,10,0.22)]"><Rocket size={21} strokeWidth={2.4} /></div><div><p className="text-sm font-extrabold tracking-tight text-white">ThorTk</p><p className="text-xs text-slate-400">Operação TikTok independente</p></div></div>
           <div className="hidden items-center gap-2 text-xs text-slate-400 sm:flex"><span className="h-2 w-2 rounded-full bg-amber-400" />Integração ainda não conectada</div>
         </div>
       </header>
