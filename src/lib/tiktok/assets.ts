@@ -21,7 +21,7 @@ function readText(value: unknown) {
 
 function dataItems(data: Record<string, unknown> | undefined): Record<string, unknown>[] {
   if (!data) return [] as Record<string, unknown>[];
-  for (const key of ["list", "item_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "pixel_list", "identity_list"]) {
+  for (const key of ["list", "item_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "pixel_list", "pixel_info_list", "identity_list"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
     if (value && typeof value === "object") {
@@ -48,14 +48,14 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
     bc: ["bc_id", "business_center_id", "id"],
     advertiser: ["advertiser_id", "id"],
     catalog: ["catalog_id", "id"],
-    pixel: ["pixel_id", "id", "code"],
+    pixel: ["pixel_id", "pixel_code", "id", "code"],
     identity: ["identity_id", "id"],
   };
   const names: Record<typeof kind, string[]> = {
     bc: ["bc_name", "business_center_name", "name"],
     advertiser: ["advertiser_name", "name"],
     catalog: ["catalog_name", "name"],
-    pixel: ["pixel_name", "name", "code"],
+    pixel: ["pixel_name", "name", "pixel_code", "code"],
     identity: ["display_name", "identity_name", "name"],
   };
   return items.flatMap((item) => {

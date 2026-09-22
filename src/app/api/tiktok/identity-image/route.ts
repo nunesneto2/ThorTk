@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { loadOverview } from "@/lib/tiktok/assets";
@@ -47,13 +48,21 @@ export async function POST(request: NextRequest) {
     if (forbidden) return responseError("A conta " + forbidden + " não pertence à autorização atual do TikTok.", 403);
 
     const bytes = await file.arrayBuffer();
-    const signature = createHash("md5").update(Buffer.from(bytes)).digest("hex");
+    // TikTok identities require a square avatar. Normalize every upload on the
+    // server so the preview can use any source image while the API always
+    // receives a 512 × 512 PNG with a centered cover crop.
+    const avatar = await sharp(Buffer.from(bytes))
+      .rotate()
+      .resize(512, 512, { fit: "cover", position: "centre" })
+      .png()
+      .toBuffer();
+    const signature = createHash("md5").update(avatar).digest("hex");
     const uploaded = await Promise.allSettled(advertiserIds.map(async (advertiserId) => {
       const upload = new FormData();
       upload.append("advertiser_id", advertiserId);
       upload.append("upload_type", "UPLOAD_BY_FILE");
       upload.append("image_signature", signature);
-      upload.append("image_file", new Blob([bytes], { type: file.type }), file.name || "identity.png");
+      upload.append("image_file", new Blob([avatar], { type: "image/png" }), "identity-512.png");
       const result = await fetch(TIKTOK_API + "/file/image/ad/upload/", {
         method: "POST",
         headers: { Accept: "application/json", "Access-Token": token },
