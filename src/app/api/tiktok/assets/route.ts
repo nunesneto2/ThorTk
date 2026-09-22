@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { Choice, loadAdvertiserAssets, loadCatalogs, loadOverview } from "@/lib/tiktok/assets";
+import { Choice, createCustomIdentity, createPixel, loadAdvertiserAssets, loadCatalogs, loadOverview } from "@/lib/tiktok/assets";
 import { decryptToken } from "@/lib/tiktok/oauth";
 
 type StoredBusinessCenter = { bc_id: string; bc_name: string; is_selected: boolean };
@@ -81,7 +81,24 @@ export async function POST(request: NextRequest) {
   try {
     const current = await userConnection();
     if (!current) return badRequest("Sessão operacional não encontrada. Entre novamente.", 401);
-    const body = await request.json().catch(() => null) as { bc_id?: string; selected?: boolean } | null;
+    const body = await request.json().catch(() => null) as { bc_id?: string; selected?: boolean; action?: "create_identity" | "create_pixel"; advertiser_ids?: string[]; name?: string; image_uri?: string } | null;
+    if (body?.action) {
+      const advertiserIds = [...new Set((body.advertiser_ids ?? []).map((item) => String(item).trim()).filter(Boolean))];
+      const name = body.name?.trim() ?? "";
+      if (!advertiserIds.length || !name) return badRequest("Selecione ao menos uma conta e informe um nome.");
+      if (body.action === "create_identity" && !body.image_uri?.trim()) return badRequest("Informe o Image URI do TikTok para criar a Identity.");
+      const { connection } = current;
+      if (!connection) return badRequest("Conecte o TikTok antes de criar ativos.", 409);
+      const token = decryptToken(connection.access_token_ciphertext);
+      const overview = await loadOverview(token);
+      const authorized = new Set(overview.advertisers.map((item) => item.id));
+      const forbidden = advertiserIds.find((id) => !authorized.has(id));
+      if (forbidden) return badRequest("A conta " + forbidden + " não pertence à autorização atual do TikTok.", 403);
+      const results = await Promise.allSettled(advertiserIds.map((advertiserId) => body.action === "create_identity" ? createCustomIdentity(token, advertiserId, name, body.image_uri!.trim()) : createPixel(token, advertiserId, name)));
+      const failed = results.flatMap((result, index) => result.status === "rejected" ? [{ advertiserId: advertiserIds[index], error: result.reason instanceof Error ? result.reason.message : "Falha no TikTok." }] : []);
+      const created = results.filter((result) => result.status === "fulfilled").length;
+      return NextResponse.json({ created, failed });
+    }
     const businessCenterId = body?.bc_id?.trim();
     if (!businessCenterId || typeof body?.selected !== "boolean") return badRequest("Business Center inválido.");
     const { admin, connection, userId } = current;

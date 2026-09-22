@@ -79,6 +79,14 @@ async function request<T extends Record<string, unknown> = Record<string, unknow
   return (payload?.data ?? {}) as T;
 }
 
+async function requestPost<T extends Record<string, unknown> = Record<string, unknown>>(path: string, token: string, body: Record<string, unknown>) {
+  const response = await fetch(`${API_BASE}${path}`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", "Access-Token": token }, body: JSON.stringify(body), cache: "no-store" });
+  const payload = await response.json().catch(() => null) as TikTokEnvelope | null;
+  const code = Number(payload?.code ?? 0);
+  if (!response.ok || code !== 0) throw new TikTokApiError(payload?.message || "O TikTok não concluiu a alteração solicitada.");
+  return (payload?.data ?? {}) as T;
+}
+
 function result<T>(value: Promise<T>, label: string) {
   return value.then((data) => ({ data, warning: null as string | null })).catch((error: unknown) => ({ data: null, warning: `${label}: ${error instanceof Error ? error.message : "indisponível"}` }));
 }
@@ -95,7 +103,20 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
     result(request("/oauth2/advertiser/get/", accessToken, { app_id: appId, secret }), "Contas de anúncio"),
   ]);
   const advertiserItems = dataItems(advertisers.data ?? undefined);
-  const advertiserChoices = normalize(advertiserItems, "advertiser");
+  const authorizedAdvertisers = normalize(advertiserItems, "advertiser");
+  // /oauth2/advertiser/get confirms access but does not reliably include the
+  // operating status. Fetch the current advertiser records before exposing
+  // filters: treating a missing status as active caused suspended accounts to
+  // appear in "Podem subir".
+  const advertiserInfo = authorizedAdvertisers.length ? await result(request("/advertiser/info/", accessToken, {
+    advertiser_ids: JSON.stringify(authorizedAdvertisers.map((item) => item.id)),
+    fields: JSON.stringify(["advertiser_id", "name", "currency", "status"]),
+  }), "Status das contas") : { data: null, warning: null as string | null };
+  const recordsById = new Map(normalize(dataItems(advertiserInfo.data ?? undefined), "advertiser").map((item) => [item.id, item]));
+  const advertiserChoices = authorizedAdvertisers.map((item) => {
+    const current = recordsById.get(item.id);
+    return current ? { ...item, name: current.name || item.name, currency: current.currency || item.currency, status: current.status } : item;
+  });
   let businessCenters = normalize(dataItems(bc.data ?? undefined), "bc");
   let derivedWarning: string | null = null;
 
@@ -116,7 +137,7 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   return {
     businessCenters,
     advertisers: advertiserChoices,
-    warnings: [bc.warning, advertisers.warning, derivedWarning].filter((warning): warning is string => Boolean(warning)),
+    warnings: [bc.warning, advertisers.warning, advertiserInfo.warning, derivedWarning].filter((warning): warning is string => Boolean(warning)),
   };
 }
 
@@ -144,4 +165,12 @@ export async function loadAdvertiserAssets(accessToken: string, advertiserId: st
     identities: normalize(dataItems(identities.data ?? undefined), "identity"),
     warnings: [info.warning, pixels.warning, identities.warning].filter((warning): warning is string => Boolean(warning)),
   };
+}
+
+export async function createCustomIdentity(accessToken: string, advertiserId: string, displayName: string, imageUri: string) {
+  return requestPost("/identity/create/", accessToken, { advertiser_id: advertiserId, display_name: displayName, image_uri: imageUri });
+}
+
+export async function createPixel(accessToken: string, advertiserId: string, pixelName: string) {
+  return requestPost("/pixel/create/", accessToken, { advertiser_id: advertiserId, pixel_category: "ONLINE_STORE", pixel_name: pixelName, partner_name: "ThorTk" });
 }
