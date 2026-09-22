@@ -73,7 +73,8 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   const secret = process.env.TIKTOK_APP_SECRET?.trim();
   if (!appId || !secret) throw new TikTokApiError("As credenciais do App TikTok não estão configuradas no servidor.");
   const [bc, advertisers] = await Promise.all([
-    result(request("/bc/get/", accessToken, { page: 1, page_size: 100, scene: "SINGLE_ACCOUNT" }), "Business Centers"),
+    // TikTok v1.3 accepts at most 50 Business Centers per page.
+    result(request("/bc/get/", accessToken, { page: 1, page_size: 50, scene: "SINGLE_ACCOUNT" }), "Business Centers"),
     result(request("/oauth2/advertiser/get/", accessToken, { app_id: appId, secret }), "Contas de anúncio"),
   ]);
   return {
@@ -84,14 +85,20 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
 }
 
 export async function loadCatalogs(accessToken: string, businessCenterId: string) {
-  const data = await request("/catalog/get/", accessToken, { bc_id: businessCenterId, page: 1, page_size: 100 });
+  const data = await request("/catalog/get/", accessToken, { bc_id: businessCenterId, page: 1, page_size: 50 });
   return normalize(dataItems(data), "catalog");
 }
 
 export async function loadAdvertiserAssets(accessToken: string, advertiserId: string): Promise<AdvertiserAssets> {
   const [info, pixels, identities] = await Promise.all([
-    result(request("/advertiser/info/", accessToken, { advertiser_id: advertiserId, fields: '["advertiser_name","currency","country"]' }), "Dados da conta"),
-    result(request("/pixel/list/", accessToken, { advertiser_id: advertiserId, page: 1, page_size: 100 }), "Pixels"),
+    // advertiser/info is a batch endpoint in v1.3. The supported field is
+    // "name" (not "advertiser_name") and advertiser_ids must be an array.
+    result(request("/advertiser/info/", accessToken, {
+      advertiser_ids: JSON.stringify([advertiserId]),
+      fields: JSON.stringify(["advertiser_id", "name", "currency", "country", "status"]),
+    }), "Dados da conta"),
+    // TikTok limits this endpoint to 20 pixels per page.
+    result(request("/pixel/list/", accessToken, { advertiser_id: advertiserId, page: 1, page_size: 20 }), "Pixels"),
     result(request("/identity/get/", accessToken, { advertiser_id: advertiserId }), "Identidades"),
   ]);
   const advertiser = normalize(dataItems(info.data ?? undefined), "advertiser")[0] ?? null;
