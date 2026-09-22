@@ -7,7 +7,7 @@ type TikTokEnvelope = {
   data?: Record<string, unknown>;
 };
 
-export type Choice = { id: string; name: string; currency?: string; status?: string; type?: string };
+export type Choice = { id: string; name: string; currency?: string; status?: string; type?: string; selected?: boolean };
 export type AssetOverview = { businessCenters: Choice[]; advertisers: Choice[]; warnings: string[] };
 export type AdvertiserAssets = { advertiser: Choice | null; pixels: Choice[]; identities: Choice[]; warnings: string[] };
 
@@ -19,13 +19,28 @@ function readText(value: unknown) {
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
 }
 
-function dataItems(data: Record<string, unknown> | undefined) {
+function dataItems(data: Record<string, unknown> | undefined): Record<string, unknown>[] {
   if (!data) return [] as Record<string, unknown>[];
-  for (const key of ["list", "item_list", "bc_list", "business_center_list", "advertiser_list", "catalog_list", "pixel_list", "identity_list"]) {
+  for (const key of ["list", "item_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "pixel_list", "identity_list"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
+    if (value && typeof value === "object") {
+      const nested = dataItems(value as Record<string, unknown>);
+      if (nested.length) return nested;
+    }
   }
   return [] as Record<string, unknown>[];
+}
+
+function businessCentersFromAdvertisers(items: Record<string, unknown>[]): Choice[] {
+  const centers = new Map<string, Choice>();
+  for (const item of items) {
+    const id = ["owner_bc_id", "bc_id", "business_center_id"].map((key) => readText(item[key])).find(Boolean);
+    if (!id || centers.has(id)) continue;
+    const name = ["owner_bc_name", "bc_name", "business_center_name"].map((key) => readText(item[key])).find(Boolean) || `Business Center ${id}`;
+    centers.set(id, { id, name });
+  }
+  return [...centers.values()];
 }
 
 function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" | "catalog" | "pixel" | "identity"): Choice[] {
@@ -79,10 +94,29 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
     result(request("/bc/get/", accessToken, { page: 1, page_size: 50 }), "Business Centers"),
     result(request("/oauth2/advertiser/get/", accessToken, { app_id: appId, secret }), "Contas de anúncio"),
   ]);
+  const advertiserItems = dataItems(advertisers.data ?? undefined);
+  const advertiserChoices = normalize(advertiserItems, "advertiser");
+  let businessCenters = normalize(dataItems(bc.data ?? undefined), "bc");
+  let derivedWarning: string | null = null;
+
+  // Some authorizations expose advertiser access but omit the BC collection.
+  // In that case the account owner_bc_id is still enough to manage its BC.
+  if (!businessCenters.length) {
+    businessCenters = businessCentersFromAdvertisers(advertiserItems);
+    if (!businessCenters.length && advertiserChoices.length) {
+      const owners = await result(request("/advertiser/info/", accessToken, {
+        advertiser_ids: JSON.stringify(advertiserChoices.map((item) => item.id)),
+        fields: JSON.stringify(["advertiser_id", "name", "owner_bc_id"]),
+      }), "Business Centers das contas");
+      businessCenters = businessCentersFromAdvertisers(dataItems(owners.data ?? undefined));
+      derivedWarning = owners.warning;
+    }
+  }
+
   return {
-    businessCenters: normalize(dataItems(bc.data ?? undefined), "bc"),
-    advertisers: normalize(dataItems(advertisers.data ?? undefined), "advertiser"),
-    warnings: [bc.warning, advertisers.warning].filter((warning): warning is string => Boolean(warning)),
+    businessCenters,
+    advertisers: advertiserChoices,
+    warnings: [bc.warning, advertisers.warning, derivedWarning].filter((warning): warning is string => Boolean(warning)),
   };
 }
 
