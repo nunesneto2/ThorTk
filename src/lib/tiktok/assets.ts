@@ -21,7 +21,7 @@ function readText(value: unknown) {
 
 function dataItems(data: Record<string, unknown> | undefined): Record<string, unknown>[] {
   if (!data) return [] as Record<string, unknown>[];
-  for (const key of ["list", "item_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "pixel_list", "pixel_info_list", "identity_list"]) {
+  for (const key of ["list", "item_list", "data_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "pixel_list", "pixel_info_list", "pixel_infos", "pixels", "shared_pixel_list", "shared_pixels", "identity_list"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
     if (value && typeof value === "object") {
@@ -30,6 +30,23 @@ function dataItems(data: Record<string, unknown> | undefined): Record<string, un
     }
   }
   return [] as Record<string, unknown>[];
+}
+
+function nestedRecordArrays(value: unknown, arrays: Record<string, unknown>[][] = [], depth = 0): Record<string, unknown>[][] {
+  if (!value || depth > 5) return arrays;
+  if (Array.isArray(value)) {
+    const records = value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+    if (records.length) arrays.push(records);
+    return arrays;
+  }
+  if (typeof value === "object") Object.values(value as Record<string, unknown>).forEach((item) => nestedRecordArrays(item, arrays, depth + 1));
+  return arrays;
+}
+
+function itemsForKind(data: Record<string, unknown> | undefined, kind: "pixel"): Record<string, unknown>[] {
+  const known = dataItems(data);
+  if (normalize(known, kind).length || !data) return known;
+  return nestedRecordArrays(data).find((items) => normalize(items, kind).length) ?? known;
 }
 
 function businessCentersFromAdvertisers(items: Record<string, unknown>[]): Choice[] {
@@ -155,13 +172,16 @@ export async function loadAdvertiserAssets(accessToken: string, advertiserId: st
       fields: JSON.stringify(["advertiser_id", "name", "currency", "country", "status"]),
     }), "Dados da conta"),
     // TikTok limits this endpoint to 20 pixels per page.
-    result(request("/pixel/list/", accessToken, { advertiser_id: advertiserId, page: 1, page_size: 20 }), "Pixels"),
+    result(request("/pixel/list/", accessToken, { advertiser_id: advertiserId, page: 1, page_size: 20, order_by: "LATEST_CREATE" }), "Pixels"),
     result(request("/identity/get/", accessToken, { advertiser_id: advertiserId }), "Identidades"),
   ]);
   const advertiser = normalize(dataItems(info.data ?? undefined), "advertiser")[0] ?? null;
+  const pixelItems = itemsForKind(pixels.data ?? undefined, "pixel");
+  const normalizedPixels = normalize(pixelItems, "pixel");
+  if (!pixels.warning) console.info("[tiktok:assets] pixel lookup", { advertiserId, responseKeys: Object.keys(pixels.data ?? {}), rawItems: pixelItems.length, normalizedItems: normalizedPixels.length });
   return {
     advertiser,
-    pixels: normalize(dataItems(pixels.data ?? undefined), "pixel"),
+    pixels: normalizedPixels,
     identities: normalize(dataItems(identities.data ?? undefined), "identity"),
     warnings: [info.warning, pixels.warning, identities.warning].filter((warning): warning is string => Boolean(warning)),
   };
