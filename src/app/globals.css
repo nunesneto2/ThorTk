@@ -127,7 +127,7 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .rocket-dark-button:hover { border-color: rgba(126,198,255,.5); color: #c4e5ff; }
 .rocket-outline-action { display: flex; width: 100%; min-height: 54px; align-items: center; justify-content: center; gap: .5rem; border: 1px dashed rgba(255,255,255,.2); border-radius: .65rem; background: rgba(18,22,25,.75); font-size: .8rem; font-weight: 800; transition: .16s ease; }
 .rocket-outline-action:hover { border-color: #5faaff; color: #9acbff; }
-.thor-crest { position: relative; display: grid; width: 72px; height: 72px; margin: 0 auto; place-items: center; overflow: hidden; border: 1px solid rgba(126,198,255,.42); border-radius: 50%; background: #10161d; box-shadow: 0 0 0 5px rgba(126,198,255,.04), 0 0 28px rgba(76,167,255,.16); animation: thor-crest-pulse 5.2s ease-in-out infinite; }
+.thor-crest { position: relative; display: grid; width: 88px; height: 88px; margin: 0 auto; place-items: center; overflow: hidden; border: 1px solid rgba(126,198,255,.42); border-radius: 50%; background: #10161d; box-shadow: 0 0 0 5px rgba(126,198,255,.04), 0 0 28px rgba(76,167,255,.16); animation: thor-crest-pulse 5.2s ease-in-out infinite; }
 .thor-crest img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 @keyframes thor-crest-pulse { 0%,100% { filter: brightness(1); } 52% { filter: brightness(1.12); } }
 .catalog-card { border: 1px solid rgba(255,255,255,.1); border-radius: .7rem; background: #101417; padding: 1rem; transition: .16s ease; }

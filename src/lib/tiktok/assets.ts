@@ -21,7 +21,7 @@ function readText(value: unknown) {
 
 function dataItems(data: Record<string, unknown> | undefined) {
   if (!data) return [] as Record<string, unknown>[];
-  for (const key of ["list", "item_list", "advertiser_list", "catalog_list", "pixel_list", "identity_list"]) {
+  for (const key of ["list", "item_list", "bc_list", "business_center_list", "advertiser_list", "catalog_list", "pixel_list", "identity_list"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
   }
@@ -74,7 +74,9 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   if (!appId || !secret) throw new TikTokApiError("As credenciais do App TikTok não estão configuradas no servidor.");
   const [bc, advertisers] = await Promise.all([
     // TikTok v1.3 accepts at most 50 Business Centers per page.
-    result(request("/bc/get/", accessToken, { page: 1, page_size: 50, scene: "SINGLE_ACCOUNT" }), "Business Centers"),
+    // Do not restrict the result to a scene: the connected user can belong to
+    // Business Centers through more than one access model.
+    result(request("/bc/get/", accessToken, { page: 1, page_size: 50 }), "Business Centers"),
     result(request("/oauth2/advertiser/get/", accessToken, { app_id: appId, secret }), "Contas de anúncio"),
   ]);
   return {
