@@ -10,3 +10,7 @@ main > * { position: relative; z-index: 1; }
 .field::placeholder { color: #64748b; }
 .field:focus { border-color: rgba(255,217,10,.78); box-shadow: 0 0 0 3px rgba(255,217,10,.11); }
 select.field option { background: #111824; color: #f8fafc; }
+.primary-button { display: inline-flex; align-items: center; gap: .55rem; border-radius: .75rem; background: #f7d800; padding: .78rem 1rem; color: #080d0f; font-size: .75rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; transition: background .18s ease, transform .18s ease; }
+.primary-button:hover { background: #ffe33a; transform: translateY(-1px); }
+.secondary-button { display: inline-flex; align-items: center; gap: .5rem; border: 1px solid rgba(255,255,255,.15); border-radius: .75rem; background: rgba(255,255,255,.04); padding: .72rem .9rem; color: #e2e8f0; font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; transition: border-color .18s ease, background .18s ease, color .18s ease; }
+.secondary-button:hover { border-color: rgba(247,216,0,.58); background: rgba(247,216,0,.08); color: #fff1a8; }
