@@ -81,12 +81,12 @@ export async function POST(request: NextRequest) {
   try {
     const current = await userConnection();
     if (!current) return badRequest("Sessão operacional não encontrada. Entre novamente.", 401);
-    const body = await request.json().catch(() => null) as { bc_id?: string; selected?: boolean; action?: "create_identity" | "create_pixel"; advertiser_ids?: string[]; name?: string; image_uri?: string } | null;
+    const body = await request.json().catch(() => null) as { bc_id?: string; selected?: boolean; action?: "create_identity" | "create_pixel"; advertiser_ids?: string[]; name?: string; image_uri?: string; image_uris?: Record<string, string> } | null;
     if (body?.action) {
       const advertiserIds = [...new Set((body.advertiser_ids ?? []).map((item) => String(item).trim()).filter(Boolean))];
       const name = body.name?.trim() ?? "";
       if (!advertiserIds.length || !name) return badRequest("Selecione ao menos uma conta e informe um nome.");
-      if (body.action === "create_identity" && !body.image_uri?.trim()) return badRequest("Informe o Image URI do TikTok para criar a Identity.");
+      if (body.action === "create_identity" && !body.image_uri?.trim() && !Object.keys(body.image_uris ?? {}).length) return badRequest("Envie uma imagem para criar a Identity.");
       const { connection } = current;
       if (!connection) return badRequest("Conecte o TikTok antes de criar ativos.", 409);
       const token = decryptToken(connection.access_token_ciphertext);
@@ -94,7 +94,12 @@ export async function POST(request: NextRequest) {
       const authorized = new Set(overview.advertisers.map((item) => item.id));
       const forbidden = advertiserIds.find((id) => !authorized.has(id));
       if (forbidden) return badRequest("A conta " + forbidden + " não pertence à autorização atual do TikTok.", 403);
-      const results = await Promise.allSettled(advertiserIds.map((advertiserId) => body.action === "create_identity" ? createCustomIdentity(token, advertiserId, name, body.image_uri!.trim()) : createPixel(token, advertiserId, name)));
+      const results = await Promise.allSettled(advertiserIds.map((advertiserId) => {
+        if (body.action === "create_pixel") return createPixel(token, advertiserId, name);
+        const imageUri = body.image_uris?.[advertiserId]?.trim() || body.image_uri?.trim();
+        if (!imageUri) return Promise.reject(new Error("A imagem não foi enviada para esta conta."));
+        return createCustomIdentity(token, advertiserId, name, imageUri);
+      }));
       const failed = results.flatMap((result, index) => result.status === "rejected" ? [{ advertiserId: advertiserIds[index], error: result.reason instanceof Error ? result.reason.message : "Falha no TikTok." }] : []);
       const created = results.filter((result) => result.status === "fulfilled").length;
       return NextResponse.json({ created, failed });
