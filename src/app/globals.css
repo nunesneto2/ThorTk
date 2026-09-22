@@ -23,7 +23,7 @@
 }
 * { box-sizing: border-box; }
 html { background: var(--background); }
-body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: -.01em; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sora), "Sora", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: -.01em; }
 .noise { pointer-events: none; position: fixed; inset: 0; z-index: 0; opacity: .23; background-image: radial-gradient(circle at 8% 8%, rgba(255,217,10,.12), transparent 24rem), radial-gradient(circle at 92% 26%, rgba(32,103,255,.13), transparent 22rem), linear-gradient(135deg, transparent 0%, rgba(255,255,255,.012) 50%, transparent 100%); }
 main > * { position: relative; z-index: 1; }
 .field { width: 100%; border: 1px solid rgba(255,255,255,.12); border-radius: .75rem; background: rgba(1,5,10,.44); color: #f8fafc; padding: .72rem .85rem; outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
@@ -134,6 +134,9 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .catalog-card:hover { border-color: rgba(126,198,255,.5); }
 .catalog-selected { border-color: #7ec6ff; background: #122331; box-shadow: 0 0 20px rgba(126,198,255,.08); }
 .section-label { font-size: 10px; font-weight: 900; letter-spacing: .075em; text-transform: uppercase; color: #d6d8dd; }
+.thor-title { font-family: "Asgard", "Asgard Wide", "God of Thunder", var(--font-cinzel), "Cinzel", serif; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: #f2f6fa; }
+.thor-title--storm { background: linear-gradient(180deg, #fff 0%, #bce9ff 45%, #36b7ff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(54,183,255,.16)); }
+.thor-title--asgard { background: linear-gradient(180deg, #f6e4ad 0%, #c69b48 60%, #8a6527 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .cta-chip { border: 1px solid transparent; border-radius: .4rem; background: #0d1114; padding: .68rem .85rem; font-size: .72rem; font-weight: 800; color: #ced1d6; transition: .16s ease; }
 .cta-chip:hover { background: #161c22; color: white; }
 .cta-selected { border-color: #d8b56b; background: #d8b56b; color: #141208; }

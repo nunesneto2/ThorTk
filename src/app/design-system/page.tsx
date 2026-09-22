@@ -22,7 +22,7 @@ export default function DesignSystemPage() {
       </section>
 
       <section className="mt-10 grid gap-6 lg:grid-cols-2">
-        <div className="rocket-section"><h2 className="section-label">02 · Tipografia</h2><p className="mt-5 text-3xl font-black tracking-[-.055em]">Título de etapa</p><p className="mt-2 text-sm text-zinc-400">Texto de apoio para orientar a configuração, sem competir com a ação.</p><p className="mt-5 text-[11px] font-black uppercase tracking-[.14em] text-[var(--thor-gold)]">Rótulo operacional</p></div>
+        <div className="rocket-section"><h2 className="section-label">02 · Tipografia</h2><p className="thor-title thor-title--storm mt-5 text-3xl">Forjando nova rota</p><p className="mt-2 text-sm text-zinc-400">Sora é a fonte de UI para orientar a configuração, sem competir com a ação.</p><p className="mt-5 text-[11px] font-black uppercase tracking-[.14em] text-[var(--thor-gold)]">Display: Asgard quando instalada · Cinzel como fallback</p></div>
         <div className="rocket-section"><h2 className="section-label">03 · Controles</h2><div className="mt-5 flex flex-wrap gap-3"><button type="button" className="rocket-launch-button w-auto px-5"><CloudLightning size={17} />Ação principal</button><button type="button" className="rocket-dark-button">Ação secundária</button><button type="button" className="footer-abort px-2">Texto simples</button></div><label className="relative mt-5 block"><Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={16} /><input className="rocket-input pl-10" placeholder="Campo de busca" /></label></div>
       </section>
 

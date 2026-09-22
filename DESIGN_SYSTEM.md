@@ -6,6 +6,13 @@
 - **Tempestade como identidade, não ruído:** azul elétrico indica seleção ou foco; dourado é apenas acento.
 - **Um significado por estado:** verde para confirmação, vermelho para bloqueio, azul para seleção e dourado para ação principal.
 
+## Tipografia
+
+- **UI operacional:** `Sora`. Obrigatória em tabelas, formulários, filtros, navegação, métricas, IDs, logs e textos longos.
+- **Display de identidade:** `Asgard`, `Asgard Wide` ou `God of Thunder` caso a fonte licenciada seja adicionada ao projeto; enquanto isso, `Cinzel` é o fallback carregado.
+- A classe `thor-title` é reservada a logo, títulos de etapa, onboarding, estados vazios relevantes, preparação e confirmação de lançamento.
+- `thor-title--storm` aplica o destaque azul elétrico; `thor-title--asgard` é reservado a conclusão/lançamento.
+
 ## Tokens
 
 - Canvas: `--thor-canvas`
