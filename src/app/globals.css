@@ -148,9 +148,12 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .structure-metric:hover { border-color: rgba(126,198,255,.32); transform: translateY(-1px); }
 .structure-metric > span:first-child { display: block; margin-bottom: .7rem; font-size: 11px; font-weight: 900; letter-spacing: .065em; text-transform: uppercase; color: #b4bac5; }
 .metric-input-shell { display: flex; height: 54px; align-items: stretch; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: .55rem; background: #0d1217; box-shadow: inset 0 1px 5px rgba(0,0,0,.22); }
-.structure-metric input { min-width: 0; flex: 1; border: 0; background: transparent; color: #f7f8fa; font-size: 2rem; font-weight: 900; line-height: 1; outline: none; padding: 0 .65rem; appearance: textfield; }
+.structure-metric input { min-width: 0; flex: 1; border: 0; background: transparent; color: #f7f8fa; font-size: 1.75rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; outline: none; padding: 0 .55rem; appearance: textfield; }
 .structure-metric input::-webkit-inner-spin-button, .structure-metric input::-webkit-outer-spin-button { appearance: none; margin: 0; }
-.metric-prefix { display: grid; place-items: center; padding-left: .75rem; color: #f2f5f8; font-size: 1.15rem; font-weight: 900; }
+.structure-metric--amount input { letter-spacing: -.035em; }
+.structure-metric--amount input.metric-value--medium { font-size: 1.4rem; }
+.structure-metric--amount input.metric-value--long { font-size: 1.12rem; }
+.metric-prefix { display: grid; place-items: center; padding-left: .6rem; color: #f2f5f8; font-size: 1rem; font-weight: 900; letter-spacing: -.025em; white-space: nowrap; }
 .metric-stepper { display: grid; width: 32px; flex: 0 0 32px; border-left: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); }
 .metric-stepper button { display: grid; place-items: center; color: #aeb7c3; transition: background .14s ease, color .14s ease; }
 .metric-stepper button:hover { background: rgba(126,198,255,.13); color: #bce9ff; }
@@ -172,5 +175,5 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .console-orb { width: 20px; height: 20px; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; animation: console-spin 1s linear infinite; }
 @keyframes console-spin { to { transform: rotate(360deg); } }
 .console-close { min-width: 116px; border-radius: .5rem; background: linear-gradient(135deg,#ffe49a,#ffbe10); padding: .75rem 1.1rem; color: #161307; font-weight: 900; transition: .16s ease; }
-@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .structure-metric { min-height: 112px; padding: .75rem; } .structure-metric > span:first-child { margin-bottom: .5rem; font-size: 9px; } .structure-metric input { font-size: 1.45rem; } .metric-input-shell { height: 47px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } }
+@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .structure-metric { min-height: 112px; padding: .75rem; } .structure-metric > span:first-child { margin-bottom: .5rem; font-size: 9px; } .structure-metric input { font-size: 1.4rem; } .structure-metric--amount input.metric-value--medium { font-size: 1.15rem; } .structure-metric--amount input.metric-value--long { font-size: 1rem; } .metric-input-shell { height: 47px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } }
 @media (prefers-reduced-motion: reduce) { .thor-crest, .console-orb { animation: none; } }
