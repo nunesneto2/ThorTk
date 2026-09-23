@@ -229,7 +229,7 @@ export default function Home() {
   >(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [showConsole, setShowConsole] = useState(false);
-  const [launchDelay, setLaunchDelay] = useState(0);
+  const [launchDelay, setLaunchDelay] = useState(5);
   const [assetAction, setAssetAction] = useState<"identity" | "pixel" | null>(
     null,
   );
