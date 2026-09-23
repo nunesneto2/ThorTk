@@ -221,6 +221,47 @@ export async function createPixel(accessToken: string, advertiserId: string, pix
   return requestPost("/pixel/create/", accessToken, { advertiser_id: advertiserId, pixel_category: "ONLINE_STORE", pixel_name: pixelName, partner_name: "ThorTk" });
 }
 
+/**
+ * Campaign creation is deliberately kept server-side.  The caller builds the
+ * body from the user's chosen configuration and this module only forwards it
+ * to TikTok with the encrypted OAuth token.
+ */
+export async function createCampaign(accessToken: string, body: Record<string, unknown>) {
+  return requestPost("/campaign/create/", accessToken, body);
+}
+
+export async function createAdgroup(accessToken: string, body: Record<string, unknown>) {
+  return requestPost("/adgroup/create/", accessToken, body);
+}
+
+export async function createAd(accessToken: string, body: Record<string, unknown>) {
+  return requestPost("/ad/create/", accessToken, body);
+}
+
+export async function updateCampaignStatus(accessToken: string, advertiserId: string, campaignIds: string[], operationStatus: "ENABLE" | "DISABLE") {
+  return requestPost("/campaign/status/update/", accessToken, {
+    advertiser_id: advertiserId,
+    campaign_ids: campaignIds,
+    operation_status: operationStatus,
+  });
+}
+
+export async function updateAdgroupStatus(accessToken: string, advertiserId: string, adgroupIds: string[], operationStatus: "ENABLE" | "DISABLE") {
+  return requestPost("/adgroup/status/update/", accessToken, {
+    advertiser_id: advertiserId,
+    adgroup_ids: adgroupIds,
+    operation_status: operationStatus,
+  });
+}
+
+export async function updateAdStatus(accessToken: string, advertiserId: string, adIds: string[], operationStatus: "ENABLE" | "DISABLE") {
+  return requestPost("/ad/status/update/", accessToken, {
+    advertiser_id: advertiserId,
+    ad_ids: adIds,
+    operation_status: operationStatus,
+  });
+}
+
 export async function pauseCampaigns(accessToken: string, advertiserId: string, campaignIds: string[]) {
   return requestPost("/campaign/status/update/", accessToken, {
     advertiser_id: advertiserId,

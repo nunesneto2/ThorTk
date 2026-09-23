@@ -72,6 +72,18 @@ type ApiCampaign = {
   name: string;
   status?: string;
 };
+type LaunchExecution = {
+  status: "completed" | "failed";
+  created?: { campaigns: number; adgroups: number; ads: number };
+  start_time?: string;
+  error?: string;
+  logs: {
+    level: "info" | "success" | "error";
+    stage: "campaign" | "adgroup" | "ad" | "activation";
+    message: string;
+    entityId?: string;
+  }[];
+};
 
 const currencies = [
   "BRL",
@@ -244,6 +256,8 @@ export default function Home() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [showConsole, setShowConsole] = useState(false);
   const [launchDelay, setLaunchDelay] = useState(5);
+  const [launchSubmitting, setLaunchSubmitting] = useState(false);
+  const [launchExecution, setLaunchExecution] = useState<LaunchExecution | null>(null);
   const [apiCampaigns, setApiCampaigns] = useState<ApiCampaign[]>([]);
   const [apiCampaignsLoading, setApiCampaignsLoading] = useState(false);
   const [campaignAction, setCampaignAction] = useState<CampaignAction | null>(null);
@@ -396,8 +410,67 @@ export default function Home() {
       catalogId &&
       selectedAccountsHaveAssets &&
       campaignName.trim() &&
+      budget > 0 &&
       (proxy !== "DEDICATED" || proxyAddress.trim()),
   );
+  const startPublication = useCallback(async () => {
+    if (!ready || launchSubmitting) return;
+    setLaunchSubmitting(true);
+    setLaunchExecution(null);
+    setShowConsole(true);
+    try {
+      const response = await fetch("/api/tiktok/launch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          advertiser_ids: selectedAdvertiserIds,
+          business_center_id: bcId,
+          catalog_id: catalogId,
+          campaign_name: campaignName,
+          budget_per_adgroup: budget,
+          campaigns: Math.max(1, Number(campaigns) || 1),
+          adgroups_per_campaign: Math.max(1, Number(groups) || 1),
+          ads_per_adgroup: Math.max(1, Number(ads) || 1),
+          start_delay_minutes: launchDelay,
+          country,
+          language,
+          ages,
+          operating_system: operatingSystem,
+          click_window: clickWindow,
+          view_window: viewWindow,
+          counting,
+          cta,
+          ad_text: adText,
+          pixels_by_advertiser: pixelByAdvertiser,
+          identities_by_advertiser: identityByAdvertiser,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as LaunchExecution | { error?: string; logs?: LaunchExecution["logs"] } | null;
+      if (!response.ok) {
+        const failure: LaunchExecution = {
+          status: "failed",
+          error: payload?.error || "O TikTok não confirmou a publicação.",
+          logs: payload?.logs ?? [],
+        };
+        setLaunchExecution(failure);
+        setNotice({ tone: "error", text: failure.error ?? "O TikTok não confirmou a publicação." });
+        return;
+      }
+      const completed = payload as LaunchExecution;
+      setLaunchExecution(completed);
+      setNotice({
+        tone: "success",
+        text: `${completed.created?.campaigns ?? 0} campanha(s), ${completed.created?.adgroups ?? 0} grupo(s) e ${completed.created?.ads ?? 0} anúncio(s) confirmados pelo TikTok.`,
+      });
+      await loadApiCampaigns(selectedAdvertiserIds);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível iniciar a publicação.";
+      setLaunchExecution({ status: "failed", error: message, logs: [] });
+      setNotice({ tone: "error", text: message });
+    } finally {
+      setLaunchSubmitting(false);
+    }
+  }, [adText, ads, ages, bcId, budget, campaignName, campaigns, catalogId, clickWindow, counting, country, cta, groups, identityByAdvertiser, language, launchDelay, launchSubmitting, loadApiCampaigns, operatingSystem, pixelByAdvertiser, ready, selectedAdvertiserIds, viewWindow]);
   const warnings = overview.warnings.concat(details.warnings);
   const filteredAdvertisers = overview.advertisers
     .filter((item) =>
@@ -967,15 +1040,16 @@ export default function Home() {
               apiCampaignCount={apiCampaigns.length}
               apiCampaignsLoading={apiCampaignsLoading}
               onManageCampaigns={requestCampaignAction}
-              onLaunch={() => setShowConsole(true)}
+              launchSubmitting={launchSubmitting}
+              onLaunch={() => void startPublication()}
             />
           )}
         </section>
         <FooterNav
           step={step}
           onBack={() => go(Math.max(0, step - 1))}
-          onNext={() => (step === 6 ? setShowConsole(true) : go(step + 1))}
-          disabled={disabled}
+          onNext={() => (step === 6 ? void startPublication() : go(step + 1))}
+          disabled={disabled || launchSubmitting}
         />
       </div>
       {assetAction && (
@@ -1047,6 +1121,8 @@ export default function Home() {
           catalog={selectedCatalog}
           pixelsByAdvertiser={pixelByAdvertiser}
           identitiesByAdvertiser={identityByAdvertiser}
+          execution={launchExecution}
+          submitting={launchSubmitting}
           onClose={() => setShowConsole(false)}
         />
       )}
@@ -3649,6 +3725,7 @@ function LaunchScreen({
   onDelay,
   apiCampaignCount,
   apiCampaignsLoading,
+  launchSubmitting,
   onManageCampaigns,
   onLaunch,
 }: {
@@ -3668,6 +3745,7 @@ function LaunchScreen({
   onDelay: (minutes: number) => void;
   apiCampaignCount: number;
   apiCampaignsLoading: boolean;
+  launchSubmitting: boolean;
   onManageCampaigns: (action: CampaignAction) => void;
   onLaunch: () => void;
 }) {
@@ -3852,12 +3930,12 @@ function LaunchScreen({
         </span>
         <button
           type="button"
-          disabled={!ready}
+          disabled={!ready || launchSubmitting}
           onClick={onLaunch}
           className="rocket-launch-button w-full sm:w-auto sm:min-w-[272px] disabled:opacity-40"
         >
-          <CloudLightning size={19} />
-          Iniciar publicação
+          {launchSubmitting ? <Loader2 size={19} className="animate-spin" /> : <CloudLightning size={19} />}
+          {launchSubmitting ? "Publicando no TikTok" : "Iniciar publicação"}
         </button>
       </div>
       {!ready && (
@@ -4000,6 +4078,8 @@ function LaunchConsole({
   catalog,
   pixelsByAdvertiser,
   identitiesByAdvertiser,
+  execution,
+  submitting,
   onClose,
 }: {
   counts: { campaigns: number; groups: number; ads: number };
@@ -4011,6 +4091,8 @@ function LaunchConsole({
   catalog: Choice | null;
   pixelsByAdvertiser: Record<string, string>;
   identitiesByAdvertiser: Record<string, string>;
+  execution: LaunchExecution | null;
+  submitting: boolean;
   onClose: () => void;
 }) {
   type LogTone = "queue" | "info" | "warning" | "error";
@@ -4023,7 +4105,7 @@ function LaunchConsole({
     [],
   );
   const perAccountOperations = counts.campaigns + counts.groups + counts.ads;
-  const logs = useMemo<LogEntry[]>(() => {
+  const plannedLogs = useMemo<LogEntry[]>(() => {
     const entries: LogEntry[] = [
       {
         id: "currency",
@@ -4084,6 +4166,26 @@ function LaunchConsole({
     }
     return entries;
   }, [accounts, budget, catalog, counts.ads, counts.campaigns, counts.groups, currency, delay, identitiesByAdvertiser, pixelsByAdvertiser, ready]);
+  const logs = useMemo<LogEntry[]>(() => {
+    if (submitting) {
+      return [{
+        id: "publishing",
+        tone: "queue",
+        message: "Solicitação enviada. O ThorTk está aguardando e registrando o retorno real do TikTok…",
+      }];
+    }
+    if (execution) {
+      const actual: LogEntry[] = execution.logs.map((entry, index) => ({
+        id: `${entry.stage}-${entry.entityId ?? "event"}-${index}`,
+        tone: (entry.level === "error" ? "error" : entry.level === "success" ? "queue" : "info") as LogTone,
+        message: entry.entityId ? `${entry.message} [${entry.entityId}]` : entry.message,
+      }));
+      return actual.length
+        ? actual
+        : [{ id: "empty", tone: "error", message: execution.error || "O TikTok não retornou logs de execução." }];
+    }
+    return plannedLogs;
+  }, [execution, plannedLogs, submitting]);
   const visibleLogs = logs.filter((entry) => {
     const matchesFilter = filter === "all" || entry.tone === filter;
     return matchesFilter && entry.message.toLowerCase().includes(query.trim().toLowerCase());
@@ -4121,9 +4223,11 @@ function LaunchConsole({
           <div className="flex items-center gap-3">
             <span className="console-orb" />
             <div>
-              <h2 className="text-lg font-black">Execução de publicação</h2>
+              <h2 className="text-lg font-black">
+                {submitting ? "Publicando no TikTok" : execution?.status === "completed" ? "Publicação concluída" : execution?.status === "failed" ? "Publicação interrompida" : "Execução de publicação"}
+              </h2>
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.1em] text-zinc-500">
-                Publicação serial por conta
+                Retorno real por conta
               </p>
             </div>
           </div>
@@ -4197,9 +4301,9 @@ function LaunchConsole({
           </div>
           <div className="mt-4 border-t border-white/[.08] pt-4">
             <p className="text-sm font-black">
-              Resumo: <span className="text-sky-300">{accounts.length * perAccountOperations} operações planejadas</span> · {" "}
+              Resumo: <span className="text-sky-300">{execution?.created ? `${execution.created.campaigns} campanha(s), ${execution.created.adgroups} grupo(s) e ${execution.created.ads} anúncio(s)` : `${accounts.length * perAccountOperations} operações`}</span> · {" "}
               <span className={ready ? "text-[#f3ce62]" : "text-red-300"}>
-                {ready ? "Envio serial pronto para iniciar" : "publicação bloqueada"}
+                {submitting ? "publicando" : execution?.status === "completed" ? "confirmado pelo TikTok" : execution?.status === "failed" ? "interrompido com erro" : ready ? "aguardando início" : "publicação bloqueada"}
               </span>
             </p>
             <p className="mt-2 text-[10px] leading-4 text-zinc-500">
