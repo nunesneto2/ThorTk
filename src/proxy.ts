@@ -6,11 +6,7 @@ const wwwDomain = "www.tikscalepro.online";
 export function proxy(request: NextRequest) {
   const hostname = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
 
-  if (hostname === wwwDomain) {
-    return NextResponse.redirect(new URL(request.nextUrl.pathname + request.nextUrl.search, "https://" + primaryDomain), 308);
-  }
-
-  if (hostname !== primaryDomain) return NextResponse.next();
+  if (hostname !== primaryDomain && hostname !== wwwDomain) return NextResponse.next();
 
   const url = request.nextUrl.clone();
   if (url.pathname === "/") {
