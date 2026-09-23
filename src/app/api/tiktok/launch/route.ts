@@ -197,6 +197,16 @@ export async function POST(request: NextRequest) {
     const groupCount = positiveInt(body?.adgroups_per_campaign);
     const adCount = positiveInt(body?.ads_per_adgroup);
     const campaignBudget = budget * groupCount;
+    const usdAccounts = advertiserIds.filter((advertiserId) =>
+      overview.advertisers.some((advertiser) =>
+        advertiser.id === advertiserId && advertiser.currency === "USD",
+      ),
+    );
+    if (usdAccounts.length && campaignBudget < 50) {
+      throw new Error(
+        `O TikTok exige no mínimo US$ 50/dia por campanha nesta conta. O total configurado é US$ ${campaignBudget.toFixed(2)}.`,
+      );
+    }
     const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
     const startTime = campaignStart(delay);
     const ages = (body?.ages ?? []).map((age) => AGE_GROUPS[age]).filter(Boolean);
