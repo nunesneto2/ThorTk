@@ -16,9 +16,11 @@ export const maxDuration = 60;
 
 type LaunchLog = {
   level: "info" | "success" | "error";
-  stage: "campaign" | "adgroup" | "ad" | "activation";
+  stage: "preflight" | "campaign" | "adgroup" | "ad" | "activation";
+  status: "started" | "succeeded" | "failed";
   message: string;
   entityId?: string;
+  timestamp: string;
 };
 
 type LaunchRequest = {
@@ -66,10 +68,6 @@ const AGE_GROUPS: Record<string, string> = {
   "45–54": "AGE_45_54",
   "55+": "AGE_55_100",
 };
-
-function responseError(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
 
 function cleanIds(value: unknown) {
   return [...new Set((Array.isArray(value) ? value : [])
@@ -123,9 +121,51 @@ async function activeConnection() {
 }
 
 export async function POST(request: NextRequest) {
-  const logs: LaunchLog[] = [];
-  try {
-    const body = await request.json().catch(() => null) as LaunchRequest | null;
+  const body = await request.json().catch(() => null) as LaunchRequest | null;
+  const stream = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = stream.writable.getWriter();
+  const encoder = new TextEncoder();
+
+  void (async () => {
+    const logs: LaunchLog[] = [];
+    let currentStage: LaunchLog["stage"] = "preflight";
+    const created = { campaigns: 0, adgroups: 0, ads: 0 };
+    let completedOperations = 0;
+    let totalOperations = 0;
+
+    const emit = async (event: "log" | "progress" | "completed" | "failed", payload: unknown) => {
+      await writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+    };
+    const log = async (
+      level: LaunchLog["level"],
+      stage: LaunchLog["stage"],
+      status: LaunchLog["status"],
+      message: string,
+      entityId?: string,
+    ) => {
+      currentStage = stage;
+      const entry: LaunchLog = {
+        level,
+        stage,
+        status,
+        message,
+        ...(entityId ? { entityId } : {}),
+        timestamp: new Date().toISOString(),
+      };
+      logs.push(entry);
+      await emit("log", entry);
+      return entry;
+    };
+    const progress = async () => {
+      completedOperations += 1;
+      await emit("progress", {
+        current: completedOperations,
+        total: totalOperations,
+        created,
+      });
+    };
+
+    try {
     const advertiserIds = cleanIds(body?.advertiser_ids);
     const catalogId = body?.catalog_id?.trim() ?? "";
     const businessCenterId = body?.business_center_id?.trim() ?? "";
@@ -133,21 +173,22 @@ export async function POST(request: NextRequest) {
     const budget = Number(body?.budget_per_adgroup);
     const country = body?.country?.toUpperCase() ?? "";
     if (!advertiserIds.length || !catalogId || !businessCenterId || !campaignName) {
-      return responseError("Complete contas, Business Center, catálogo e nome antes de publicar.");
+      throw new Error("Complete contas, Business Center, catálogo e nome antes de publicar.");
     }
     if (!Number.isFinite(budget) || budget <= 0) {
-      return responseError("Informe um orçamento diário por grupo maior que zero.");
+      throw new Error("Informe um orçamento diário por grupo maior que zero.");
     }
     const locationId = COUNTRY_LOCATION_IDS[country];
-    if (!locationId) return responseError("O país selecionado ainda não possui localização TikTok configurada.");
+    if (!locationId) throw new Error("O país selecionado ainda não possui localização TikTok configurada.");
 
+    await log("info", "preflight", "started", "Validando autorização, contas e configuração antes de publicar.");
     const connection = await activeConnection();
-    if (!connection) return responseError("Conecte o TikTok antes de iniciar a publicação.", 409);
+    if (!connection) throw new Error("Conecte o TikTok antes de iniciar a publicação.");
     const token = decryptToken(connection.access_token_ciphertext);
     const overview = await loadOverview(token);
     const allowed = new Set(overview.advertisers.map((item) => item.id));
     const blocked = advertiserIds.find((id) => !allowed.has(id));
-    if (blocked) return responseError(`A conta ${blocked} não pertence à autorização atual do TikTok.`, 403);
+    if (blocked) throw new Error(`A conta ${blocked} não pertence à autorização atual do TikTok.`);
 
     const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
     const startTime = campaignStart(delay);
@@ -161,13 +202,13 @@ export async function POST(request: NextRequest) {
     const language = body?.language && body.language !== "all" ? [body.language] : undefined;
     const pixels = body?.pixels_by_advertiser ?? {};
     const identities = body?.identities_by_advertiser ?? {};
-    const created = { campaigns: 0, adgroups: 0, ads: 0 };
-
-    logs.push({
-      level: "info",
-      stage: "campaign",
-      message: `Publicação iniciada. As campanhas serão criadas em série; início no TikTok: ${delay ? `+${delay} min` : "agora"}.`,
-    });
+    totalOperations = advertiserIds.length * campaignCount * (1 + groupCount + groupCount * adCount + 1);
+    await log(
+      "success",
+      "preflight",
+      "succeeded",
+      `Validação concluída. ${totalOperations} ação(ões) serão executadas em sequência; início no TikTok: ${delay ? `+${delay} min` : "agora"}.`,
+    );
 
     for (const advertiserId of advertiserIds) {
       const pixelId = pixels[advertiserId]?.trim();
@@ -178,9 +219,11 @@ export async function POST(request: NextRequest) {
 
       for (let campaignIndex = 0; campaignIndex < campaignCount; campaignIndex += 1) {
         const suffix = campaignCount > 1 ? ` ${String(campaignIndex + 1).padStart(2, "0")}` : "";
+        const campaignLabel = `${campaignName}${suffix}`;
+        await log("info", "campaign", "started", `Criando campanha “${campaignLabel}” na conta ${advertiserId}.`);
         const campaignResponse = await createCampaign(token, {
           advertiser_id: advertiserId,
-          campaign_name: `${campaignName}${suffix}`,
+          campaign_name: campaignLabel,
           objective_type: "PRODUCT_SALES",
           campaign_type: "REGULAR",
           campaign_product_source: "CATALOG",
@@ -190,15 +233,18 @@ export async function POST(request: NextRequest) {
         const campaignId = entityId(campaignResponse, ["campaign_id", "id"]);
         if (!campaignId) throw new Error("O TikTok não retornou o ID da campanha criada.");
         created.campaigns += 1;
-        logs.push({ level: "success", stage: "campaign", entityId: campaignId, message: `Campanha criada e mantida pausada: ${campaignId}.` });
+        await log("success", "campaign", "succeeded", `Campanha criada e mantida pausada.`, campaignId);
+        await progress();
 
         const adgroupIds: string[] = [];
         const adIds: string[] = [];
         for (let groupIndex = 0; groupIndex < groupCount; groupIndex += 1) {
+          const groupLabel = `${campaignLabel} · Grupo ${String(groupIndex + 1).padStart(2, "0")}`;
+          await log("info", "adgroup", "started", `Criando grupo ${groupIndex + 1}/${groupCount} da campanha ${campaignId}.`);
           const groupResponse = await createAdgroup(token, {
             advertiser_id: advertiserId,
             campaign_id: campaignId,
-            adgroup_name: `${campaignName}${suffix} · Grupo ${String(groupIndex + 1).padStart(2, "0")}`,
+            adgroup_name: groupLabel,
             promotion_type: "PRODUCT_SALES",
             product_source: "CATALOG",
             catalog_id: catalogId,
@@ -223,14 +269,16 @@ export async function POST(request: NextRequest) {
           if (!adgroupId) throw new Error(`O TikTok não retornou o ID do grupo da campanha ${campaignId}.`);
           adgroupIds.push(adgroupId);
           created.adgroups += 1;
-          logs.push({ level: "success", stage: "adgroup", entityId: adgroupId, message: `Grupo criado e mantido pausado: ${adgroupId}.` });
+          await log("success", "adgroup", "succeeded", `Grupo criado e mantido pausado.`, adgroupId);
+          await progress();
 
           for (let adIndex = 0; adIndex < adCount; adIndex += 1) {
+            await log("info", "ad", "started", `Criando anúncio ${adIndex + 1}/${adCount} do grupo ${adgroupId}.`);
             const adResponse = await createAd(token, {
               advertiser_id: advertiserId,
               adgroup_id: adgroupId,
               creatives: [{
-                ad_name: `${campaignName}${suffix} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
+                ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
                 ad_text: body?.ad_text?.trim() || campaignName,
                 call_to_action: body?.cta || "LEARN_MORE",
                 catalog_id: catalogId,
@@ -245,20 +293,23 @@ export async function POST(request: NextRequest) {
             if (!adId) throw new Error(`O TikTok não retornou o ID do anúncio do grupo ${adgroupId}.`);
             adIds.push(adId);
             created.ads += 1;
-            logs.push({ level: "success", stage: "ad", entityId: adId, message: `Anúncio de catálogo criado e mantido pausado: ${adId}.` });
+            await log("success", "ad", "succeeded", `Anúncio de catálogo criado e mantido pausado.`, adId);
+            await progress();
           }
         }
 
         // Activate only a complete campaign tree. A validation failure above
         // leaves the campaign paused and immediately stops the operation.
+        await log("info", "activation", "started", `Ativando a estrutura completa da campanha ${campaignId}.`);
         if (adIds.length) await updateAdStatus(token, advertiserId, adIds, "ENABLE");
         if (adgroupIds.length) await updateAdgroupStatus(token, advertiserId, adgroupIds, "ENABLE");
         await updateCampaignStatus(token, advertiserId, [campaignId], "ENABLE");
-        logs.push({ level: "success", stage: "activation", entityId: campaignId, message: `Estrutura completa ativada no TikTok: ${campaignId}.` });
+        await log("success", "activation", "succeeded", `Estrutura completa ativada no TikTok.`, campaignId);
+        await progress();
       }
     }
 
-    return NextResponse.json({
+    await emit("completed", {
       status: "completed",
       created,
       start_time: startTime,
@@ -266,7 +317,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "O TikTok não confirmou a publicação.";
-    logs.push({ level: "error", stage: "activation", message });
-    return NextResponse.json({ status: "failed", logs, error: message }, { status: 502 });
+    await log("error", currentStage, "failed", message);
+    await emit("failed", { status: "failed", created, logs, error: message });
+  } finally {
+    await writer.close();
   }
+  })();
+
+  return new NextResponse(stream.readable, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

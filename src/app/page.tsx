@@ -73,15 +73,18 @@ type ApiCampaign = {
   status?: string;
 };
 type LaunchExecution = {
-  status: "completed" | "failed";
+  status: "running" | "completed" | "failed";
   created?: { campaigns: number; adgroups: number; ads: number };
+  progress?: { current: number; total: number };
   start_time?: string;
   error?: string;
   logs: {
     level: "info" | "success" | "error";
-    stage: "campaign" | "adgroup" | "ad" | "activation";
+    stage: "preflight" | "campaign" | "adgroup" | "ad" | "activation";
+    status: "started" | "succeeded" | "failed";
     message: string;
     entityId?: string;
+    timestamp: string;
   }[];
 };
 
@@ -416,7 +419,8 @@ export default function Home() {
   const startPublication = useCallback(async () => {
     if (!ready || launchSubmitting) return;
     setLaunchSubmitting(true);
-    setLaunchExecution(null);
+    let liveExecution: LaunchExecution = { status: "running", logs: [] };
+    setLaunchExecution(liveExecution);
     setShowConsole(true);
     try {
       const response = await fetch("/api/tiktok/launch", {
@@ -445,27 +449,98 @@ export default function Home() {
           identities_by_advertiser: identityByAdvertiser,
         }),
       });
-      const payload = (await response.json().catch(() => null)) as LaunchExecution | { error?: string; logs?: LaunchExecution["logs"] } | null;
-      if (!response.ok) {
-        const failure: LaunchExecution = {
-          status: "failed",
-          error: payload?.error || "O TikTok não confirmou a publicação.",
-          logs: payload?.logs ?? [],
-        };
-        setLaunchExecution(failure);
-        setNotice({ tone: "error", text: failure.error ?? "O TikTok não confirmou a publicação." });
-        return;
+      if (!response.ok || !response.body) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error || "O TikTok não iniciou a publicação.");
       }
-      const completed = payload as LaunchExecution;
-      setLaunchExecution(completed);
-      setNotice({
-        tone: "success",
-        text: `${completed.created?.campaigns ?? 0} campanha(s), ${completed.created?.adgroups ?? 0} grupo(s) e ${completed.created?.ads ?? 0} anúncio(s) confirmados pelo TikTok.`,
-      });
-      await loadApiCampaigns(selectedAdvertiserIds);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let terminal = false;
+      const applyEvent = (event: string, raw: string) => {
+        const payload = JSON.parse(raw) as LaunchExecution & {
+          current?: number;
+          total?: number;
+          created?: { campaigns: number; adgroups: number; ads: number };
+        };
+        if (event === "log") {
+          const log = payload as unknown as LaunchExecution["logs"][number];
+          liveExecution = { ...liveExecution, logs: [...liveExecution.logs, log] };
+          setLaunchExecution(liveExecution);
+          return;
+        }
+        if (event === "progress") {
+          liveExecution = {
+            ...liveExecution,
+            created: payload.created,
+            progress: { current: payload.current ?? 0, total: payload.total ?? 0 },
+          };
+          setLaunchExecution(liveExecution);
+          return;
+        }
+        if (event === "completed") {
+          terminal = true;
+          liveExecution = {
+            ...liveExecution,
+            status: "completed",
+            created: payload.created,
+            start_time: payload.start_time,
+          };
+          setLaunchExecution(liveExecution);
+          setNotice({
+            tone: "success",
+            text: `${payload.created?.campaigns ?? 0} campanha(s), ${payload.created?.adgroups ?? 0} grupo(s) e ${payload.created?.ads ?? 0} anúncio(s) confirmados pelo TikTok.`,
+          });
+          return;
+        }
+        if (event === "failed") {
+          terminal = true;
+          liveExecution = {
+            ...liveExecution,
+            status: "failed",
+            created: payload.created,
+            error: payload.error || "O TikTok não confirmou a publicação.",
+          };
+          setLaunchExecution(liveExecution);
+          setNotice({ tone: "error", text: liveExecution.error ?? "O TikTok não confirmou a publicação." });
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        let divider = buffer.indexOf("\n\n");
+        while (divider >= 0) {
+          const frame = buffer.slice(0, divider);
+          buffer = buffer.slice(divider + 2);
+          const event = frame.match(/^event:\s*(.+)$/m)?.[1]?.trim() ?? "message";
+          const data = frame.match(/^data:\s*(.+)$/m)?.[1];
+          if (data) applyEvent(event, data);
+          divider = buffer.indexOf("\n\n");
+        }
+        if (done) break;
+      }
+
+      if (!terminal) throw new Error("A conexão terminou antes do TikTok confirmar o resultado da publicação.");
+      if (liveExecution.status === "completed") await loadApiCampaigns(selectedAdvertiserIds);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível iniciar a publicação.";
-      setLaunchExecution({ status: "failed", error: message, logs: [] });
+      liveExecution = {
+        ...liveExecution,
+        status: "failed",
+        error: message,
+        logs: liveExecution.logs.length
+          ? liveExecution.logs
+          : [{
+              level: "error",
+              stage: "preflight",
+              status: "failed",
+              message,
+              timestamp: new Date().toISOString(),
+            }],
+      };
+      setLaunchExecution(liveExecution);
       setNotice({ tone: "error", text: message });
     } finally {
       setLaunchSubmitting(false);
@@ -1112,15 +1187,7 @@ export default function Home() {
       )}
       {showConsole && (
         <LaunchConsole
-          counts={counts}
-          budget={budget}
-          currency={accountCurrency}
-          ready={ready}
-          delay={launchDelay}
           accounts={selectedLaunchAdvertisers}
-          catalog={selectedCatalog}
-          pixelsByAdvertiser={pixelByAdvertiser}
-          identitiesByAdvertiser={identityByAdvertiser}
           execution={launchExecution}
           submitting={launchSubmitting}
           onClose={() => setShowConsole(false)}
@@ -4069,123 +4136,41 @@ function FooterNav({
   );
 }
 function LaunchConsole({
-  counts,
-  budget,
-  currency,
-  ready,
-  delay,
   accounts,
-  catalog,
-  pixelsByAdvertiser,
-  identitiesByAdvertiser,
   execution,
   submitting,
   onClose,
 }: {
-  counts: { campaigns: number; groups: number; ads: number };
-  budget: number;
-  currency: string;
-  ready: boolean;
-  delay: number;
   accounts: Choice[];
-  catalog: Choice | null;
-  pixelsByAdvertiser: Record<string, string>;
-  identitiesByAdvertiser: Record<string, string>;
   execution: LaunchExecution | null;
   submitting: boolean;
   onClose: () => void;
 }) {
-  type LogTone = "queue" | "info" | "warning" | "error";
-  type LogEntry = { id: string; tone: LogTone; message: string };
+  type LogTone = "queue" | "info" | "success" | "error";
+  type LogEntry = {
+    id: string;
+    tone: LogTone;
+    message: string;
+    timestamp: string;
+    stage: LaunchExecution["logs"][number]["stage"];
+    status: LaunchExecution["logs"][number]["status"];
+  };
   const [filter, setFilter] = useState<"all" | LogTone>("all");
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
-  const createdAt = useMemo(
-    () => new Date().toLocaleTimeString("pt-BR", { hour12: false }),
-    [],
-  );
-  const perAccountOperations = counts.campaigns + counts.groups + counts.ads;
-  const plannedLogs = useMemo<LogEntry[]>(() => {
-    const entries: LogEntry[] = [
-      {
-        id: "currency",
-        tone: "info",
-        message: `Valores em ${currency}: ${money(budget, currency)} por grupo, sem conversão adicional.`,
-      },
-      {
-        id: "catalog",
-        tone: catalog ? "info" : "error",
-        message: catalog
-          ? `Catálogo: ${catalog.name} · criativo dinâmico de catálogo selecionado.`
-          : "Catálogo pendente. A publicação não pode iniciar.",
-      },
-    ];
-    for (const account of accounts) {
-      const pixel = pixelsByAdvertiser[account.id];
-      const identity = identitiesByAdvertiser[account.id];
-      entries.push(
-        {
-          id: `account-${account.id}`,
-          tone: "queue",
-          message: `Conta ${account.name} (${account.id}) selecionada para publicação serial.`,
-        },
-        {
-          id: `campaign-${account.id}`,
-          tone: "queue",
-          message: `${counts.campaigns} campanha(s) serão enviadas, uma por vez, com ${money(budget, currency)} por grupo.`,
-        },
-        {
-          id: `assets-${account.id}`,
-          tone: pixel && identity ? "info" : "error",
-          message:
-            pixel && identity
-              ? `Ativos confirmados · Pixel ${pixel} · Identity ${identity}.`
-              : "Pixel ou Identity pendente nesta conta.",
-        },
-        {
-          id: `structure-${account.id}`,
-          tone: "queue",
-          message: `Após cada campanha, criar ${counts.groups} grupo(s) e ${counts.ads} anúncio(s) por grupo antes da próxima campanha.`,
-        },
-      );
-    }
-    entries.push({
-      id: "sequence",
-      tone: "warning",
-      message:
-        delay === 0
-          ? "Início no TikTok: agora. A ordem de criação permanece serial por conta."
-          : `Início no TikTok: daqui a ${delay} min. O envio começa agora e a ordem de criação permanece serial.`,
-    });
-    if (!ready) {
-      entries.push({
-        id: "blocked",
-        tone: "error",
-        message: "Publicação bloqueada: complete os itens pendentes antes de iniciar.",
-      });
-    }
-    return entries;
-  }, [accounts, budget, catalog, counts.ads, counts.campaigns, counts.groups, currency, delay, identitiesByAdvertiser, pixelsByAdvertiser, ready]);
   const logs = useMemo<LogEntry[]>(() => {
-    if (submitting) {
-      return [{
-        id: "publishing",
-        tone: "queue",
-        message: "Solicitação enviada. O ThorTk está aguardando e registrando o retorno real do TikTok…",
-      }];
-    }
     if (execution) {
-      const actual: LogEntry[] = execution.logs.map((entry, index) => ({
-        id: `${entry.stage}-${entry.entityId ?? "event"}-${index}`,
-        tone: (entry.level === "error" ? "error" : entry.level === "success" ? "queue" : "info") as LogTone,
+      return execution.logs.map((entry, index) => ({
+        id: `${entry.timestamp}-${entry.stage}-${entry.entityId ?? "event"}-${index}`,
+        tone: entry.level === "error" ? "error" : entry.level === "success" ? "success" : entry.status === "started" ? "queue" : "info",
         message: entry.entityId ? `${entry.message} [${entry.entityId}]` : entry.message,
+        timestamp: entry.timestamp,
+        stage: entry.stage,
+        status: entry.status,
       }));
-      return actual.length
-        ? actual
-        : [{ id: "empty", tone: "error", message: execution.error || "O TikTok não retornou logs de execução." }];
     }
-    return plannedLogs;
-  }, [execution, plannedLogs, submitting]);
+    return [];
+  }, [execution]);
   const visibleLogs = logs.filter((entry) => {
     const matchesFilter = filter === "all" || entry.tone === filter;
     return matchesFilter && entry.message.toLowerCase().includes(query.trim().toLowerCase());
@@ -4193,14 +4178,14 @@ function LaunchConsole({
   const countFor = (tone: LogTone) => logs.filter((entry) => entry.tone === tone).length;
   const copyLogs = async () => {
     await navigator.clipboard?.writeText(
-      logs.map((entry) => `[${createdAt}] ${entry.message}`).join("\n"),
+      logs.map((entry) => `[${dateLabel(entry.timestamp)}] ${entry.message}`).join("\n"),
     );
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   };
   const exportLogs = () => {
     const file = new Blob(
-      [logs.map((entry) => `[${createdAt}] ${entry.message}`).join("\n")],
+      [logs.map((entry) => `[${dateLabel(entry.timestamp)}] ${entry.message}`).join("\n")],
       { type: "text/plain;charset=utf-8" },
     );
     const url = URL.createObjectURL(file);
@@ -4212,9 +4197,9 @@ function LaunchConsole({
   };
   const tabs: { key: "all" | LogTone; label: string; count: number }[] = [
     { key: "all", label: "Todos", count: logs.length },
+    { key: "success", label: "Sucessos", count: countFor("success") },
     { key: "error", label: "Erros", count: countFor("error") },
-    { key: "warning", label: "Avisos", count: countFor("warning") },
-    { key: "queue", label: "Na fila", count: countFor("queue") },
+    { key: "queue", label: "Em execução", count: countFor("queue") },
   ];
   return (
     <div className="modal-layer fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
@@ -4232,8 +4217,11 @@ function LaunchConsole({
             </div>
           </div>
           <div className="flex gap-2">
-            <span className="rounded bg-[#413716] px-2 py-1 text-[10px] font-black text-[#f4da73]">
-              {countFor("warning")} aviso
+            <span className="rounded bg-emerald-400/10 px-2 py-1 text-[10px] font-black text-emerald-300">
+              {countFor("success")} sucesso
+            </span>
+            <span className="rounded bg-red-400/10 px-2 py-1 text-[10px] font-black text-red-300">
+              {countFor("error")} erro
             </span>
             <button
               type="button"
@@ -4283,29 +4271,31 @@ function LaunchConsole({
                 className={
                   entry.tone === "error"
                       ? "text-red-300"
-                      : entry.tone === "warning"
-                        ? "text-[#f3ce62]"
+                      : entry.tone === "success"
+                        ? "text-emerald-300"
                         : entry.tone === "queue"
                           ? "text-sky-300"
                           : "text-zinc-300"
                 }
               >
                 <span className="mr-3 opacity-60">
-                  [{createdAt}]
+                  [{new Date(entry.timestamp).toLocaleTimeString("pt-BR", { hour12: false })}]
                 </span>
-                <b className="mr-2">{entry.tone === "queue" ? "⌛" : entry.tone === "warning" ? "!" : entry.tone === "error" ? "×" : "·"}</b>
+                <b className="mr-2">{entry.status === "started" ? "›" : entry.status === "failed" ? "×" : "✓"}</b>
+                <span className="mr-2 opacity-60">{entry.stage.toUpperCase()}</span>
                 {entry.message}
               </p>
             ))}
-            {!visibleLogs.length && <p className="py-10 text-center text-zinc-500">Nenhum log encontrado.</p>}
+            {!visibleLogs.length && <p className="py-10 text-center text-zinc-500">{submitting ? "Aguardando o primeiro retorno do TikTok…" : "Nenhum evento de execução."}</p>}
           </div>
           <div className="mt-4 border-t border-white/[.08] pt-4">
             <p className="text-sm font-black">
-              Resumo: <span className="text-sky-300">{execution?.created ? `${execution.created.campaigns} campanha(s), ${execution.created.adgroups} grupo(s) e ${execution.created.ads} anúncio(s)` : `${accounts.length * perAccountOperations} operações`}</span> · {" "}
-              <span className={ready ? "text-[#f3ce62]" : "text-red-300"}>
-                {submitting ? "publicando" : execution?.status === "completed" ? "confirmado pelo TikTok" : execution?.status === "failed" ? "interrompido com erro" : ready ? "aguardando início" : "publicação bloqueada"}
+              Resumo: <span className="text-sky-300">{execution?.created ? `${execution.created.campaigns} campanha(s), ${execution.created.adgroups} grupo(s) e ${execution.created.ads} anúncio(s)` : "aguardando confirmação"}</span> · {" "}
+              <span className={execution?.status === "failed" ? "text-red-300" : execution?.status === "completed" ? "text-emerald-300" : "text-[#f3ce62]"}>
+                {execution?.status === "completed" ? "confirmado pelo TikTok" : execution?.status === "failed" ? "interrompido com erro" : "executando"}
               </span>
             </p>
+            {execution?.progress && <p className="mt-1 text-[11px] font-bold text-zinc-400">{execution.progress.current}/{execution.progress.total} ações concluídas</p>}
             <p className="mt-2 text-[10px] leading-4 text-zinc-500">
               A publicação nunca deve abrir tarefas em paralelo: campanha → grupos → anúncios, depois a próxima campanha e a próxima conta.
             </p>
