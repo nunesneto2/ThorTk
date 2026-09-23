@@ -326,7 +326,7 @@ export async function POST(request: NextRequest) {
             identity_id: identityId,
             pixel_id: pixelId,
             billing_event: "OCPM",
-            optimization_goal: "CONVERSIONS",
+            optimization_goal: "CONVERSION",
             optimization_event: "PURCHASE",
             budget,
             budget_mode: "BUDGET_MODE_DAY",
