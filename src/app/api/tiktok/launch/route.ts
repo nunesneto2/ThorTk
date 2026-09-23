@@ -226,6 +226,7 @@ export async function POST(request: NextRequest) {
           campaign_name: campaignLabel,
           objective_type: "PRODUCT_SALES",
           campaign_type: "REGULAR_CAMPAIGN",
+          budget_mode: "BUDGET_MODE_ADGROUP",
           campaign_product_source: "CATALOG",
           catalog_enabled: true,
           operation_status: "DISABLE",
