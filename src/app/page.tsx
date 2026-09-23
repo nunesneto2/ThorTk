@@ -2770,14 +2770,16 @@ function StructureScreen({
   };
   return (
     <div className="mx-auto max-w-[820px] pt-4">
-      <AsgardController
-        activeField={activeAsgardField}
-        campaignValue={Number(campaigns) || 0}
-        groupValue={Number(groups) || 0}
-        adsValue={Number(ads) || 0}
-        budgetValue={Number(amount.replace(",", ".")) || 0}
-        pulseKey={asgardPulse}
-      />
+      <div className="asgard-controller-section">
+        <AsgardController
+          activeField={activeAsgardField}
+          campaignValue={Number(campaigns) || 0}
+          groupValue={Number(groups) || 0}
+          adsValue={Number(ads) || 0}
+          budgetValue={Number(amount.replace(",", ".")) || 0}
+          pulseKey={asgardPulse}
+        />
+      </div>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[.08em] text-zinc-500">
         <span>Moeda dos valores</span>
         <select

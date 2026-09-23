@@ -158,27 +158,32 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .metric-stepper { display: grid; width: 30px; flex: 0 0 30px; border-left: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); }
 .metric-stepper button { display: grid; place-items: center; color: #aeb7c3; transition: background .14s ease, color .14s ease; }
 .metric-stepper button:hover { background: rgba(126,198,255,.13); color: #bce9ff; }
-.asgard-controller { --core-x: 0px; --core-y: 0px; position: relative; isolation: isolate; width: clamp(240px, 33vw, 360px); aspect-ratio: 1619 / 971; margin: -1.2rem auto -1.65rem; pointer-events: none; }
+.asgard-controller-section { position: relative; display: flex; min-height: 286px; margin: 0 0 24px; align-items: flex-end; justify-content: center; overflow: hidden; isolation: isolate; }
+.asgard-controller { --core-x: 0px; --core-y: 0px; position: relative; isolation: isolate; width: clamp(280px, 30vw, 410px); aspect-ratio: 1619 / 971; margin: 0; pointer-events: none; }
 .asgard-controller img { pointer-events: none; user-select: none; }
 .asgard-base { z-index: 1; object-fit: contain; }
-.asgard-glow { position: absolute; z-index: 2; left: 50%; top: 54%; width: 32%; height: auto; transform: translate(-50%, -50%) scale(.94); opacity: .18; transition: opacity 200ms ease, transform 200ms ease; }
-.asgard-core { position: absolute; z-index: 3; left: 50%; top: 54%; width: 24%; height: auto; transform: translate3d(calc(-50% + var(--core-x)), calc(-50% + var(--core-y)), 0); will-change: transform; }
-.asgard-rune { position: absolute; z-index: 4; width: 13.5%; height: auto; opacity: .38; filter: saturate(.55); transform: scale(.94); transition: opacity 180ms ease, transform 180ms ease, filter 180ms ease; }
-.asgard-rune--campaign { left: 22%; top: 34%; }
-.asgard-rune--group { right: 22%; top: 34%; }
-.asgard-rune--ads { left: 31%; bottom: 18%; }
-.asgard-rune--budget { right: 31%; bottom: 18%; }
-.asgard-controller--campaign .asgard-rune--campaign, .asgard-controller--group .asgard-rune--group, .asgard-controller--ads .asgard-rune--ads, .asgard-controller--budget .asgard-rune--budget, .asgard-controller--complete .asgard-rune { opacity: 1; filter: saturate(1); transform: scale(1); }
-.asgard-controller--campaign .asgard-glow, .asgard-controller--group .asgard-glow, .asgard-controller--ads .asgard-glow, .asgard-controller--budget .asgard-glow { opacity: .5; transform: translate(-50%, -50%) scale(1.02); }
-.asgard-controller--complete .asgard-glow { opacity: .62; transform: translate(-50%, -50%) scale(1.04); }
-.asgard-controller--complete .asgard-base { animation: asgard-base-complete 440ms cubic-bezier(.2,.75,.25,1) both; }
+.asgard-glow { position: absolute; z-index: 2; left: 50%; top: 54%; width: 32%; height: auto; transform: translate(-50%, -50%) scale(.94); opacity: .14; transition: opacity 200ms ease, transform 200ms ease; }
+.asgard-core { position: absolute; z-index: 3; left: 50%; top: 54%; width: 24%; height: auto; opacity: .63; transform: translate3d(calc(-50% + var(--core-x)), calc(-50% + var(--core-y)), 0); transition: opacity 180ms ease; will-change: transform; }
+.asgard-rune { position: absolute; z-index: 4; width: 13.5%; height: auto; opacity: .34; filter: saturate(.65); transform: scale(.95); transition: opacity 180ms ease, transform 180ms ease; }
+.asgard-rune--campaign { left: 18.5%; top: 29%; }
+.asgard-rune--group { right: 18.5%; top: 29%; }
+.asgard-rune--ads { left: 26.5%; bottom: 12%; }
+.asgard-rune--budget { right: 26.5%; bottom: 12%; }
+.asgard-controller--campaign .asgard-rune--campaign, .asgard-controller--group .asgard-rune--group, .asgard-controller--ads .asgard-rune--ads, .asgard-controller--budget .asgard-rune--budget { opacity: 1; filter: saturate(1) drop-shadow(0 0 5px rgba(90,216,255,.22)); transform: scale(1.03); }
+.asgard-controller--campaign .asgard-glow, .asgard-controller--group .asgard-glow, .asgard-controller--ads .asgard-glow, .asgard-controller--budget .asgard-glow { opacity: .38; transform: translate(-50%, -50%) scale(1.01); }
+.asgard-controller--campaign .asgard-core, .asgard-controller--group .asgard-core, .asgard-controller--ads .asgard-core, .asgard-controller--budget .asgard-core { opacity: .8; }
+.asgard-controller--complete .asgard-rune { opacity: .8; filter: saturate(.9) drop-shadow(0 0 4px rgba(90,216,255,.13)); transform: scale(1); }
+.asgard-controller--complete .asgard-core { opacity: .75; }
+.asgard-controller--complete .asgard-glow { opacity: .22; transform: translate(-50%, -50%) scale(1); animation: asgard-complete-glow 360ms ease-out; }
+.asgard-controller--complete .asgard-base { animation: asgard-base-complete 360ms cubic-bezier(.2,.75,.25,1) both; }
 .asgard-controller--pulse-1 .asgard-glow, .asgard-controller--pulse-0 .asgard-glow { animation: asgard-glow-pulse 300ms ease-out; }
 .asgard-controller--pulse-1 .asgard-core, .asgard-controller--pulse-0 .asgard-core { animation: asgard-core-pulse 300ms ease-out; }
 .asgard-controller--campaign.asgard-controller--pulse-1 .asgard-rune--campaign, .asgard-controller--campaign.asgard-controller--pulse-0 .asgard-rune--campaign, .asgard-controller--group.asgard-controller--pulse-1 .asgard-rune--group, .asgard-controller--group.asgard-controller--pulse-0 .asgard-rune--group, .asgard-controller--ads.asgard-controller--pulse-1 .asgard-rune--ads, .asgard-controller--ads.asgard-controller--pulse-0 .asgard-rune--ads, .asgard-controller--budget.asgard-controller--pulse-1 .asgard-rune--budget, .asgard-controller--budget.asgard-controller--pulse-0 .asgard-rune--budget { animation: asgard-rune-pulse 300ms ease-out; }
-@keyframes asgard-glow-pulse { 0% { opacity: .18; transform: translate(-50%, -50%) scale(.94); } 27% { opacity: .72; transform: translate(-50%, -50%) scale(1.05); } 100% { opacity: .18; transform: translate(-50%, -50%) scale(.94); } }
-@keyframes asgard-core-pulse { 0%, 100% { scale: 1; } 28% { scale: 1.055; } }
-@keyframes asgard-rune-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
-@keyframes asgard-base-complete { 0% { rotate: 0deg; } 55% { rotate: .7deg; } 100% { rotate: 0deg; } }
+@keyframes asgard-glow-pulse { 0% { opacity: .14; transform: translate(-50%, -50%) scale(.94); } 28% { opacity: .62; transform: translate(-50%, -50%) scale(1.05); } 100% { opacity: .14; transform: translate(-50%, -50%) scale(.94); } }
+@keyframes asgard-core-pulse { 0%, 100% { scale: 1; opacity: .8; } 28% { scale: 1.06; opacity: 1; } }
+@keyframes asgard-rune-pulse { 0%, 100% { scale: 1.03; } 50% { scale: 1.075; } }
+@keyframes asgard-complete-glow { 0% { opacity: .35; transform: translate(-50%, -50%) scale(1.04); } 100% { opacity: .22; transform: translate(-50%, -50%) scale(1); } }
+@keyframes asgard-base-complete { 0% { rotate: 0deg; scale: 1; } 52% { rotate: .5deg; scale: 1.01; } 100% { rotate: 0deg; scale: 1; } }
 .flag-icon { display: inline-block; width: 20px; height: 15px; flex: 0 0 20px; border-radius: 2px; background-color: #17202a; background-position: center; background-repeat: no-repeat; background-size: cover; box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 1px 4px rgba(0,0,0,.35); }
 .small-yellow { border: 1px solid #8d7611; border-radius: .35rem; background: #3a3212; padding: .45rem .7rem; font-size: .7rem; font-weight: 900; color: #ffd31a; }
 .age-chip, .os-card { border: 1px solid transparent; border-radius: .4rem; background: #0d1114; padding: .75rem .95rem; font-size: .78rem; font-weight: 800; color: #b9bdc6; }
@@ -197,5 +202,7 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .console-orb { width: 20px; height: 20px; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; animation: console-spin 1s linear infinite; }
 @keyframes console-spin { to { transform: rotate(360deg); } }
 .console-close { min-width: 116px; border-radius: .5rem; background: linear-gradient(135deg,#ffe49a,#ffbe10); padding: .75rem 1.1rem; color: #161307; font-weight: 900; transition: .16s ease; }
-@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller { width: clamp(160px, 56vw, 220px); margin: -1rem auto -1.15rem; } .structure-metric { min-height: 100px; padding: .7rem; } .structure-metric > span:first-child { margin-bottom: .45rem; font-size: 9px; } .structure-metric input { font-size: 1.2rem; } .structure-metric--amount input.metric-value--medium { font-size: 1rem; } .structure-metric--amount input.metric-value--long { font-size: .82rem; } .metric-input-shell { height: 44px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } }
+@media (max-width: 1180px) { .asgard-controller-section { min-height: 244px; margin-bottom: 22px; } .asgard-controller { width: clamp(280px, 31vw, 340px); } }
+@media (max-width: 900px) { .asgard-controller-section { min-height: 206px; margin-bottom: 20px; } .asgard-controller { width: clamp(230px, 36vw, 280px); } }
+@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller-section { min-height: 164px; margin-bottom: 16px; } .asgard-controller { width: clamp(170px, 56vw, 220px); } .structure-metric { min-height: 100px; padding: .7rem; } .structure-metric > span:first-child { margin-bottom: .45rem; font-size: 9px; } .structure-metric input { font-size: 1.2rem; } .structure-metric--amount input.metric-value--medium { font-size: 1rem; } .structure-metric--amount input.metric-value--long { font-size: .82rem; } .metric-input-shell { height: 44px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } }
 @media (prefers-reduced-motion: reduce) { .thor-crest, .console-orb, .asgard-controller *, .asgard-controller--complete .asgard-base { animation: none !important; transition: none !important; } .asgard-core { transform: translate(-50%, -50%) !important; will-change: auto; } }
