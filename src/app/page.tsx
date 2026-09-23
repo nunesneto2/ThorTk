@@ -2213,7 +2213,6 @@ function AsgardController({
 }) {
   const controllerRef = useRef<HTMLDivElement>(null);
   const animationFrame = useRef<number | null>(null);
-  const animateRef = useRef<() => void>(() => {});
   const target = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
   const completeRef = useRef(false);
@@ -2225,65 +2224,49 @@ function AsgardController({
     { field: "ads", source: "/rune-ads.webp", label: "" },
     { field: "budget", source: "/rune-budget.webp", label: "" },
   ];
-  const animate = useCallback(() => {
-    const root = controllerRef.current;
-    if (!root) return;
-    current.current.x += (target.current.x - current.current.x) * 0.12;
-    current.current.y += (target.current.y - current.current.y) * 0.12;
-    root.style.setProperty("--core-x", `${current.current.x.toFixed(2)}px`);
-    root.style.setProperty("--core-y", `${current.current.y.toFixed(2)}px`);
-    if (
-      Math.abs(target.current.x - current.current.x) > 0.05 ||
-      Math.abs(target.current.y - current.current.y) > 0.05
-    )
-      animationFrame.current = requestAnimationFrame(animateRef.current);
-    else animationFrame.current = null;
+  useEffect(() => {
+    const animate = () => {
+      const root = controllerRef.current;
+      if (root) {
+        current.current.x += (target.current.x - current.current.x) * 0.12;
+        current.current.y += (target.current.y - current.current.y) * 0.12;
+        root.style.setProperty("--core-x", `${current.current.x.toFixed(2)}px`);
+        root.style.setProperty("--core-y", `${current.current.y.toFixed(2)}px`);
+      }
+      animationFrame.current = requestAnimationFrame(animate);
+    };
+    animationFrame.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrame.current !== null)
+        cancelAnimationFrame(animationFrame.current);
+    };
   }, []);
   useEffect(() => {
-    animateRef.current = animate;
-  }, [animate]);
-  const requestMotion = useCallback(() => {
-    if (animationFrame.current === null)
-      animationFrame.current = requestAnimationFrame(animate);
-  }, [animate]);
-  useEffect(() => {
-    const offsets: Record<AsgardField, { x: number; y: number }> = {
-      campaign: { x: -6, y: -1 },
-      group: { x: -2, y: -2 },
-      ads: { x: 2, y: 2 },
-      budget: { x: 6, y: 1 },
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const resetTracking = () => {
+      target.current = { x: 0, y: 0 };
     };
-    target.current = activeField ? offsets[activeField] : { x: 0, y: 0 };
-    requestMotion();
-  }, [activeField, requestMotion]);
-  useEffect(() => {
-    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const handleMove = (event: MouseEvent) => {
-      if (!media.matches || !controllerRef.current || activeField) return;
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!controllerRef.current) return;
       const rect = controllerRef.current.getBoundingClientRect();
-      const x = Math.max(
-        -8,
-        Math.min(
-          8,
-          ((event.clientX - (rect.left + rect.width / 2)) / rect.width) * 16,
-        ),
-      );
-      const y = Math.max(
-        -8,
-        Math.min(
-          8,
-          ((event.clientY - (rect.top + rect.height / 2)) / rect.height) * 16,
-        ),
-      );
-      target.current = { x, y };
-      requestMotion();
+      const normalizedX =
+        (event.clientX - (rect.left + rect.width / 2)) /
+        (window.innerWidth / 2);
+      const normalizedY =
+        (event.clientY - (rect.top + rect.height / 2)) /
+        (window.innerHeight / 2);
+      target.current.x = Math.max(-8, Math.min(8, normalizedX * 8));
+      target.current.y = Math.max(-6, Math.min(6, normalizedY * 6));
     };
-    window.addEventListener("mousemove", handleMove, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: true,
+    });
+    window.addEventListener("blur", resetTracking);
     return () => {
-      window.removeEventListener("mousemove", handleMove);
-      if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("blur", resetTracking);
     };
-  }, [activeField, requestMotion]);
+  }, []);
   useEffect(() => {
     if (isComplete && !completeRef.current) onComplete?.();
     completeRef.current = isComplete;
@@ -2298,7 +2281,7 @@ function AsgardController({
         src="/asgard-controller-base.webp"
         alt=""
         fill
-        sizes="(max-width: 760px) 220px, (max-width: 1100px) 310px, 360px"
+        sizes="(max-width: 760px) 220px, (max-width: 1180px) 340px, 410px"
         className="asgard-base"
       />
       <Image

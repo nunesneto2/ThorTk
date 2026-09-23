@@ -163,7 +163,7 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .asgard-controller img { pointer-events: none; user-select: none; }
 .asgard-base { z-index: 1; object-fit: contain; }
 .asgard-glow { position: absolute; z-index: 2; left: 50%; top: 54%; width: 32%; height: auto; transform: translate(-50%, -50%) scale(.94); opacity: .14; transition: opacity 200ms ease, transform 200ms ease; }
-.asgard-core { position: absolute; z-index: 3; left: 50%; top: 54%; width: 24%; height: auto; opacity: .63; transform: translate3d(calc(-50% + var(--core-x)), calc(-50% + var(--core-y)), 0); transition: opacity 180ms ease; will-change: transform; }
+.asgard-core { position: absolute; z-index: 3; left: 50%; top: 54%; width: 24%; height: auto; opacity: .63; transform: translate(-50%, -50%) translate3d(var(--core-x, 0px), var(--core-y, 0px), 0); transition: opacity 180ms ease; will-change: transform; }
 .asgard-rune { position: absolute; z-index: 4; width: 13.5%; height: auto; opacity: .34; filter: saturate(.65); transform: scale(.95); transition: opacity 180ms ease, transform 180ms ease; }
 .asgard-rune--campaign { left: 18.5%; top: 29%; }
 .asgard-rune--group { right: 18.5%; top: 29%; }
