@@ -4199,7 +4199,7 @@ function LaunchConsole({
     { key: "all", label: "Todos", count: logs.length },
     { key: "success", label: "Sucessos", count: countFor("success") },
     { key: "error", label: "Erros", count: countFor("error") },
-    { key: "queue", label: "Em execução", count: countFor("queue") },
+    { key: "queue", label: "Iniciadas", count: countFor("queue") },
   ];
   return (
     <div className="modal-layer fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
