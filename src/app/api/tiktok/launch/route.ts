@@ -293,7 +293,9 @@ export async function POST(request: NextRequest) {
             advertiser_id: advertiserId,
             campaign_id: campaignId,
             adgroup_name: groupLabel,
-            promotion_type: "PRODUCT_SALES",
+            // PRODUCT_SALES is the campaign objective. The ad group itself
+            // must declare the website promotion surface for catalog traffic.
+            promotion_type: "WEBSITE",
             product_source: "CATALOG",
             catalog_id: catalogId,
             catalog_authorized_bc_id: businessCenterId,
