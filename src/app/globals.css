@@ -133,6 +133,7 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .catalog-card { border: 1px solid rgba(255,255,255,.1); border-radius: .7rem; background: #101417; padding: 1rem; transition: .16s ease; }
 .catalog-card:hover { border-color: rgba(126,198,255,.5); }
 .catalog-selected { border-color: #7ec6ff; background: #122331; box-shadow: 0 0 20px rgba(126,198,255,.08); }
+.catalog-card--compact { display: flex; min-height: 76px; align-items: center; gap: .8rem; padding: .8rem .9rem; }
 .section-label { font-size: 10px; font-weight: 900; letter-spacing: .075em; text-transform: uppercase; color: #d6d8dd; }
 .thor-title { font-family: "Asgard", "Asgard Wide", "God of Thunder", var(--font-cinzel), "Cinzel", serif; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: #f2f6fa; }
 .thor-title--storm { background: linear-gradient(180deg, #fff 0%, #bce9ff 45%, #36b7ff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(54,183,255,.16)); }
