@@ -184,8 +184,6 @@ export default function Home() {
   const [bcId, setBcId] = useState("");
   const [advertiserId, setAdvertiserId] = useState("");
   const [catalogId, setCatalogId] = useState("");
-  const [pixelId, setPixelId] = useState("");
-  const [identityId, setIdentityId] = useState("");
   const [query, setQuery] = useState("");
   const [accountFilter, setAccountFilter] = useState<AccountFilter>("ALL");
   const [selectedAdvertiserIds, setSelectedAdvertiserIds] = useState<string[]>(
@@ -231,6 +229,7 @@ export default function Home() {
   >(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [showConsole, setShowConsole] = useState(false);
+  const [launchDelay, setLaunchDelay] = useState(0);
   const [assetAction, setAssetAction] = useState<"identity" | "pixel" | null>(
     null,
   );
@@ -255,10 +254,19 @@ export default function Home() {
     details.advertiser;
   const selectedCatalog =
     catalogs.find((item) => item.id === catalogId) ?? null;
-  const selectedPixel =
-    details.pixels.find((item) => item.id === pixelId) ?? null;
-  const selectedIdentity =
-    details.identities.find((item) => item.id === identityId) ?? null;
+  const selectedLaunchAdvertisers = overview.advertisers.filter((item) =>
+    selectedAdvertiserIds.includes(item.id),
+  );
+  const selectedAccountsHaveAssets =
+    selectedLaunchAdvertisers.length > 0 &&
+    selectedLaunchAdvertisers.every(
+      (item) =>
+        Boolean(pixelByAdvertiser[item.id]) &&
+        Boolean(identityByAdvertiser[item.id]),
+    );
+  const selectedAccountsOperational =
+    selectedLaunchAdvertisers.length > 0 &&
+    selectedLaunchAdvertisers.every(isOperationalAdvertiser);
   const accountCurrency =
     details.advertiser?.currency ?? selectedAdvertiser?.currency ?? "BRL";
   const counts = useMemo(() => {
@@ -280,10 +288,10 @@ export default function Home() {
   }, [accountCurrency, amount, inputCurrency, rate]);
   const ready = Boolean(
     bcId &&
-      advertiserId &&
+      selectedLaunchAdvertisers.length &&
+      selectedAccountsOperational &&
       catalogId &&
-      pixelId &&
-      identityId &&
+      selectedAccountsHaveAssets &&
       (pullCatalogText || adText.trim()) &&
       campaignName.trim() &&
       (proxy !== "DEDICATED" || proxyAddress.trim()),
@@ -442,8 +450,6 @@ export default function Home() {
         }));
         if (id === advertiserId) {
           setDetails(payload);
-          setPixelId(payload.pixels[0]?.id || "");
-          setIdentityId(payload.identities[0]?.id || "");
         }
       } catch (error) {
         const failure = {
@@ -739,8 +745,6 @@ export default function Home() {
               }
               onActivateAccount={(id) => {
                 setAdvertiserId(id);
-                setPixelId("");
-                setIdentityId("");
                 setSelectedAdvertiserIds((current) =>
                   current.includes(id) ? current : [...current, id],
                 );
@@ -748,22 +752,18 @@ export default function Home() {
               onClear={() => {
                 setSelectedAdvertiserIds([]);
                 setAdvertiserId("");
-                setPixelId("");
-                setIdentityId("");
               }}
               onPixel={(id, value) => {
                 setPixelByAdvertiser((current) => ({
                   ...current,
                   [id]: value,
                 }));
-                if (id === advertiserId) setPixelId(value);
               }}
               onIdentity={(id, value) => {
                 setIdentityByAdvertiser((current) => ({
                   ...current,
                   [id]: value,
                 }));
-                if (id === advertiserId) setIdentityId(value);
               }}
               onCreateIdentity={() => openAssetAction("identity")}
               onBindPixel={() => openAssetAction("pixel")}
@@ -848,13 +848,17 @@ export default function Home() {
               ready={ready}
               name={campaignName}
               bc={selectedBc}
-              advertiser={selectedAdvertiser}
               catalog={selectedCatalog}
-              pixel={selectedPixel}
-              identity={selectedIdentity}
               counts={counts}
               budget={budget}
               currency={accountCurrency}
+              connected={overview.connected}
+              selectedAccounts={selectedLaunchAdvertisers}
+              assetsReady={selectedAccountsHaveAssets}
+              creativeReady={Boolean(pullCatalogText || adText.trim())}
+              proxyReady={proxy !== "DEDICATED" || Boolean(proxyAddress.trim())}
+              delay={launchDelay}
+              onDelay={setLaunchDelay}
               onOpen={() => setShowConsole(true)}
             />
           )}
@@ -931,6 +935,8 @@ export default function Home() {
           budget={budget}
           currency={accountCurrency}
           ready={ready}
+          delay={launchDelay}
+          selectedAccounts={selectedLaunchAdvertisers.length}
           onClose={() => setShowConsole(false)}
         />
       )}
@@ -3492,80 +3498,210 @@ function LaunchScreen({
   ready,
   name,
   bc,
-  advertiser,
   catalog,
-  pixel,
-  identity,
   counts,
   budget,
   currency,
+  connected,
+  selectedAccounts,
+  assetsReady,
+  creativeReady,
+  proxyReady,
+  delay,
+  onDelay,
   onOpen,
 }: {
   ready: boolean;
   name: string;
   bc: Choice | null;
-  advertiser: Choice | null;
   catalog: Choice | null;
-  pixel: Choice | null;
-  identity: Choice | null;
   counts: { campaigns: number; groups: number; ads: number };
   budget: number;
   currency: string;
+  connected: boolean;
+  selectedAccounts: Choice[];
+  assetsReady: boolean;
+  creativeReady: boolean;
+  proxyReady: boolean;
+  delay: number;
+  onDelay: (minutes: number) => void;
   onOpen: () => void;
 }) {
-  const rows = [
-    ["Business Center", bc],
-    ["Conta", advertiser],
-    ["Catálogo", catalog],
-    ["Pixel", pixel],
-    ["Identity", identity],
+  const accountCount = selectedAccounts.length;
+  const activeAccounts = selectedAccounts.filter(isOperationalAdvertiser).length;
+  const totals = {
+    campaigns: counts.campaigns * accountCount,
+    groups: counts.groups * accountCount,
+    ads: counts.ads * accountCount,
+  };
+  const checks = [
+    {
+      label: "Canal TikTok conectado",
+      detail: connected ? "Autorização ativa para esta sessão." : "Autorize o canal antes de publicar.",
+      complete: connected,
+    },
+    {
+      label: "Contas selecionadas",
+      detail: accountCount
+        ? `${activeAccounts}/${accountCount} conta(s) operacional(is).`
+        : "Selecione ao menos uma conta operacional.",
+      complete: accountCount > 0 && activeAccounts === accountCount,
+    },
+    {
+      label: "Catálogo definido",
+      detail: catalog?.name ?? "Escolha o catálogo da Business Center.",
+      complete: Boolean(bc && catalog),
+    },
+    {
+      label: "Identity e Pixel por conta",
+      detail: assetsReady
+        ? "Todos os ativos selecionados são autorizados."
+        : "Associe uma Identity e um Pixel a cada conta.",
+      complete: assetsReady,
+    },
+    {
+      label: "Criativo configurado",
+      detail: creativeReady
+        ? "Texto ou conteúdo do catálogo definido."
+        : "Defina o texto do anúncio ou use o catálogo.",
+      complete: creativeReady,
+    },
+    {
+      label: "Orçamento e nomenclatura",
+      detail:
+        budget > 0 && name.trim()
+          ? `${money(budget, currency)} por grupo · ${name.trim()}`
+          : "Informe orçamento e nome da campanha.",
+      complete: budget > 0 && Boolean(name.trim()),
+    },
+    {
+      label: "Rota de saída",
+      detail: proxyReady
+        ? "Configuração de rede validada."
+        : "Informe o endereço da proxy dedicada.",
+      complete: proxyReady,
+    },
+  ];
+  const scheduleOptions = [
+    [0, "Agora"],
+    [1, "+1 min"],
+    [5, "+5 min"],
+    [10, "+10 min"],
+    [15, "+15 min"],
+    [30, "+30 min"],
+    [60, "+1 hora"],
   ] as const;
+  const scheduleLabel =
+    scheduleOptions.find(([minutes]) => minutes === delay)?.[1] ?? "Agora";
   return (
-    <div className="mx-auto max-w-[760px] pt-4">
-      <div className="rocket-card overflow-hidden">
-        <div className="border-b border-white/[.08] px-5 py-4">
-          <p className="section-label">Resumo de lançamento</p>
-          <h2 className="thor-title thor-title--asgard mt-2 text-3xl leading-tight">
-            {name || "Operação pendente"}
-          </h2>
-        </div>
-        <div className="p-5">
-          <div className="divide-y divide-white/[.07]">
-            {rows.map(([label, item]) => (
+    <div className="mx-auto max-w-[1180px] pt-4">
+      <div className="mb-4">
+        <p className="section-label">Revisão de lançamento</p>
+        <h2 className="thor-title mt-2 text-3xl leading-none sm:text-4xl">
+          Launch
+        </h2>
+        <p className="mt-2 text-sm font-semibold text-zinc-300">
+          Revise o checklist e escolha quando iniciar. {" "}
+          <span className="text-sky-300">Tudo pronto? Execute o pré-flight.</span>
+        </p>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            {checks.map((check) => (
               <div
-                key={label}
-                className="flex items-center justify-between gap-4 py-3 text-sm"
+                key={check.label}
+                className={`launch-check ${check.complete ? "launch-check--ready" : "launch-check--pending"}`}
               >
-                <span className="text-zinc-500">{label}</span>
-                <span
-                  className={`flex min-w-0 items-center gap-2 text-right font-bold ${item ? "text-emerald-300" : "text-amber-300"}`}
-                >
-                  {item ? <CircleCheck size={15} /> : <CircleAlert size={15} />}
-                  <span className="truncate">{item?.name ?? "Pendente"}</span>
+                <span className="launch-check-icon">
+                  {check.complete ? <CircleCheck size={18} /> : <CircleAlert size={18} />}
+                </span>
+                <span className="min-w-0">
+                  <b>{check.label}</b>
+                  <small>{check.detail}</small>
                 </span>
               </div>
             ))}
           </div>
-          <div className="mt-5 rounded-lg border border-[#d8b56b]/35 bg-[#2b250e] p-4">
-            <p className="text-xs text-[#f6df73]">
-              {counts.campaigns} campanha(s) · {counts.groups} grupo(s) ·{" "}
-              {counts.ads} anúncio(s)
+          <section className="rocket-section launch-schedule p-5 sm:p-6">
+            <p className="section-label">Quando iniciar?</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {scheduleOptions.map(([minutes, label]) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  onClick={() => onDelay(minutes)}
+                  aria-pressed={delay === minutes}
+                  className={`launch-schedule-option ${delay === minutes ? "launch-schedule-option--active" : ""}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-5 flex items-center gap-2 text-xs font-bold text-[#e7c677]">
+              <Timer size={15} />
+              {delay === 0
+                ? "Início previsto assim que o pré-flight for aprovado."
+                : `Início previsto para daqui a ${delay} minuto(s), após aprovação do pré-flight.`}
             </p>
-            <p className="mt-2 text-xl font-black">
-              Teto diário: {money(budget * counts.groups, currency)}
-            </p>
+          </section>
+        </div>
+        <aside className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              [accountCount, "Contas ativas"],
+              [totals.campaigns, "Campanhas"],
+              [totals.groups, "Grupos"],
+              [totals.ads, "Anúncios"],
+            ].map(([value, label]) => (
+              <div key={label} className="launch-stat">
+                <b>{value}</b>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="launch-budget">
+            <span>Limite diário estimado</span>
+            <b>{money(budget * totals.groups, currency)}</b>
+            <small>{money(budget, currency)} por grupo</small>
           </div>
           <button
             type="button"
-            disabled={!ready}
-            onClick={onOpen}
-            className="rocket-launch-button mt-6 disabled:opacity-40"
+            disabled
+            title="Disponível quando houver campanhas publicadas pela API."
+            className="launch-manage-action launch-manage-action--pause"
           >
-            <CloudLightning size={19} />
-            Preparar console de lançamento
+            Pausar campanhas publicadas
           </button>
-        </div>
+          <button
+            type="button"
+            disabled
+            title="Disponível quando houver campanhas publicadas pela API."
+            className="launch-manage-action launch-manage-action--delete"
+          >
+            Excluir campanhas publicadas
+          </button>
+        </aside>
       </div>
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <span className="mr-auto text-xs font-semibold text-zinc-500">
+          Janela selecionada: <b className="text-zinc-300">{scheduleLabel}</b>
+        </span>
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={onOpen}
+          className="rocket-launch-button w-full sm:w-auto sm:min-w-[272px] disabled:opacity-40"
+        >
+          <CloudLightning size={19} />
+          Executar pré-flight
+        </button>
+      </div>
+      {!ready && (
+        <p className="mt-3 text-right text-xs text-amber-200">
+          Complete os itens pendentes para liberar o pré-flight.
+        </p>
+      )}
     </div>
   );
 }
@@ -3604,6 +3740,8 @@ function LaunchConsole({
   budget,
   currency,
   ready,
+  delay,
+  selectedAccounts,
   onClose,
 }: {
   name: string;
@@ -3611,18 +3749,20 @@ function LaunchConsole({
   budget: number;
   currency: string;
   ready: boolean;
+  delay: number;
+  selectedAccounts: number;
   onClose: () => void;
 }) {
   const logs = [
     [
-      "!",
-      `Conta usa ${currency}; orçamento calculado em ${currency}: ${money(budget, currency)} por grupo.`,
-      "warning",
+      "✓",
+      `${selectedAccounts} conta(s) selecionada(s) para a estrutura atual.`,
+      "success",
     ],
     [
-      "!",
-      `Teto diário estimado: ${money(budget * counts.groups, currency)}.`,
-      "warning",
+      "✓",
+      `Orçamento: ${money(budget, currency)} por grupo · teto diário por conta: ${money(budget * counts.groups, currency)}.`,
+      "success",
     ],
     ["▶", `Campanha: ${name || "sem nome"}`, "info"],
     [
@@ -3631,8 +3771,12 @@ function LaunchConsole({
       "info",
     ],
     [
-      "✓",
-      "Pré-flight concluído. Nenhuma campanha foi criada nesta tela.",
+      ready ? "✓" : "!",
+      ready
+        ? delay === 0
+          ? "Pré-flight aprovado. A configuração está pronta para publicação pela integração de campanhas."
+          : `Pré-flight aprovado. A janela de início está definida para +${delay} minuto(s).`
+        : "Pré-flight bloqueado: complete os ativos e dados pendentes.",
       ready ? "success" : "error",
     ],
   ] as const;
@@ -3642,11 +3786,11 @@ function LaunchConsole({
         <div className="flex items-center justify-between border-b border-white/[.08] px-6 py-5">
           <div className="flex items-center gap-3">
             <span className="console-orb" />
-            <h2 className="text-xl font-black">Preparando campanhas...</h2>
+            <h2 className="text-xl font-black">Pré-flight de lançamento</h2>
           </div>
           <div className="flex gap-2">
-            <span className="rounded bg-[#4b4116] px-2 py-1 text-[10px] font-black text-[#ffd31a]">
-              2 avisos
+            <span className="rounded bg-[#143d2c] px-2 py-1 text-[10px] font-black text-emerald-200">
+              VALIDAÇÃO
             </span>
             <button
               type="button"
@@ -3661,11 +3805,11 @@ function LaunchConsole({
           <div className="flex items-center justify-between border-b border-white/[.06] pb-3 text-xs">
             <div className="flex gap-5 text-zinc-400">
               <b className="rounded bg-zinc-700 px-3 py-2 text-zinc-100">
-                Todos (5)
+                Todos ({logs.length})
               </b>
-              <span>Erros (0)</span>
-              <span>Avisos (2)</span>
-              <span>Sucesso (1)</span>
+              <span>Erros ({ready ? 0 : 1})</span>
+              <span>Avisos (0)</span>
+              <span>Sucesso ({ready ? logs.length - 1 : logs.length - 1})</span>
             </div>
             <span className="text-sky-300">Copiar · Exportar</span>
           </div>
@@ -3686,11 +3830,9 @@ function LaunchConsole({
                 className={
                   tone === "success"
                     ? "text-emerald-300"
-                    : tone === "warning"
-                      ? "text-[#ffd31a]"
-                      : tone === "error"
-                        ? "text-red-300"
-                        : "text-sky-300"
+                    : tone === "error"
+                      ? "text-red-300"
+                      : "text-sky-300"
                 }
               >
                 <span className="mr-3 opacity-60">
@@ -3703,12 +3845,15 @@ function LaunchConsole({
           </div>
           <div className="mt-5 border-t border-white/[.08] pt-4">
             <p className="font-black">
-              Resumo: <span className="text-emerald-300">1 sucesso</span> ·{" "}
-              <span className="text-[#ffd31a]">2 avisos</span>
+              Resumo: {" "}
+              <span className={ready ? "text-emerald-300" : "text-red-300"}>
+                {ready ? "pronto para publicação" : "pendências encontradas"}
+              </span>
             </p>
             <p className="mt-4 text-[10px] font-black uppercase tracking-[.13em] text-zinc-500">
-              A criação real será habilitada após integrar o endpoint de
-              publicação do TikTok.
+              Este pré-flight valida a configuração local. A publicação real
+              exige a integração Campaign Management e um criativo de mídia
+              aprovado no TikTok.
             </p>
           </div>
         </div>
