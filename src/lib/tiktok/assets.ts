@@ -12,7 +12,10 @@ export type AssetOverview = { businessCenters: Choice[]; advertisers: Choice[]; 
 export type AdvertiserAssets = { advertiser: Choice | null; pixels: Choice[]; identities: Choice[]; warnings: string[] };
 
 class TikTokApiError extends Error {
-  constructor(message: string) { super(message); this.name = "TikTokApiError"; }
+  constructor(message: string, requestId?: string) {
+    super(requestId ? `${message} (request_id TikTok: ${requestId})` : message);
+    this.name = "TikTokApiError";
+  }
 }
 
 function readText(value: unknown) {
@@ -94,7 +97,12 @@ async function request<T extends Record<string, unknown> = Record<string, unknow
   const response = await fetch(url, { headers: { Accept: "application/json", "Access-Token": token }, cache: "no-store" });
   const payload = await response.json().catch(() => null) as TikTokEnvelope | null;
   const code = Number(payload?.code ?? 0);
-  if (!response.ok || code !== 0) throw new TikTokApiError(payload?.message || "O TikTok não retornou os ativos solicitados.");
+  if (!response.ok || code !== 0) {
+    throw new TikTokApiError(
+      payload?.message || "O TikTok não retornou os ativos solicitados.",
+      payload?.request_id,
+    );
+  }
   return (payload?.data ?? {}) as T;
 }
 
@@ -102,7 +110,12 @@ async function requestPost<T extends Record<string, unknown> = Record<string, un
   const response = await fetch(`${API_BASE}${path}`, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", "Access-Token": token }, body: JSON.stringify(body), cache: "no-store" });
   const payload = await response.json().catch(() => null) as TikTokEnvelope | null;
   const code = Number(payload?.code ?? 0);
-  if (!response.ok || code !== 0) throw new TikTokApiError(payload?.message || "O TikTok não concluiu a alteração solicitada.");
+  if (!response.ok || code !== 0) {
+    throw new TikTokApiError(
+      payload?.message || "O TikTok não concluiu a alteração solicitada.",
+      payload?.request_id,
+    );
+  }
   return (payload?.data ?? {}) as T;
 }
 
