@@ -292,7 +292,6 @@ export default function Home() {
       selectedAccountsOperational &&
       catalogId &&
       selectedAccountsHaveAssets &&
-      (pullCatalogText || adText.trim()) &&
       campaignName.trim() &&
       (proxy !== "DEDICATED" || proxyAddress.trim()),
   );
@@ -855,7 +854,7 @@ export default function Home() {
               connected={overview.connected}
               selectedAccounts={selectedLaunchAdvertisers}
               assetsReady={selectedAccountsHaveAssets}
-              creativeReady={Boolean(pullCatalogText || adText.trim())}
+              catalogCreativeReady={Boolean(catalogId)}
               proxyReady={proxy !== "DEDICATED" || Boolean(proxyAddress.trim())}
               delay={launchDelay}
               onDelay={setLaunchDelay}
@@ -3505,7 +3504,7 @@ function LaunchScreen({
   connected,
   selectedAccounts,
   assetsReady,
-  creativeReady,
+  catalogCreativeReady,
   proxyReady,
   delay,
   onDelay,
@@ -3521,7 +3520,7 @@ function LaunchScreen({
   connected: boolean;
   selectedAccounts: Choice[];
   assetsReady: boolean;
-  creativeReady: boolean;
+  catalogCreativeReady: boolean;
   proxyReady: boolean;
   delay: number;
   onDelay: (minutes: number) => void;
@@ -3560,11 +3559,11 @@ function LaunchScreen({
       complete: assetsReady,
     },
     {
-      label: "Criativo configurado",
-      detail: creativeReady
-        ? "Texto ou conteúdo do catálogo definido."
-        : "Defina o texto do anúncio ou use o catálogo.",
-      complete: creativeReady,
+      label: "Criativo dinâmico de catálogo",
+      detail: catalogCreativeReady
+        ? "Produtos e variações serão usados a partir do catálogo definido."
+        : "Defina o catálogo que fornecerá os produtos do anúncio.",
+      complete: catalogCreativeReady,
     },
     {
       label: "Orçamento e nomenclatura",
@@ -3851,9 +3850,8 @@ function LaunchConsole({
               </span>
             </p>
             <p className="mt-4 text-[10px] font-black uppercase tracking-[.13em] text-zinc-500">
-              Este pré-flight valida a configuração local. A publicação real
-              exige a integração Campaign Management e um criativo de mídia
-              aprovado no TikTok.
+              Este pré-flight valida a configuração de catálogo. A publicação
+              real exige apenas a integração Campaign Management autorizada.
             </p>
           </div>
         </div>
