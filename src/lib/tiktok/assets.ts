@@ -21,7 +21,7 @@ function readText(value: unknown) {
 
 function dataItems(data: Record<string, unknown> | undefined): Record<string, unknown>[] {
   if (!data) return [] as Record<string, unknown>[];
-  for (const key of ["list", "item_list", "data_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "pixel_list", "pixel_info_list", "pixel_infos", "pixels", "shared_pixel_list", "shared_pixels", "identity_list"]) {
+  for (const key of ["list", "item_list", "data_list", "bc_list", "business_center_list", "business_centers", "bc_info_list", "advertiser_list", "catalog_list", "campaign_list", "pixel_list", "pixel_info_list", "pixel_infos", "pixels", "shared_pixel_list", "shared_pixels", "identity_list"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
     if (value && typeof value === "object") {
@@ -60,13 +60,14 @@ function businessCentersFromAdvertisers(items: Record<string, unknown>[]): Choic
   return [...centers.values()];
 }
 
-function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" | "catalog" | "pixel" | "identity"): Choice[] {
+function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" | "catalog" | "pixel" | "identity" | "campaign"): Choice[] {
   const ids: Record<typeof kind, string[]> = {
     bc: ["bc_id", "business_center_id", "id"],
     advertiser: ["advertiser_id", "id"],
     catalog: ["catalog_id", "id"],
     pixel: ["pixel_id", "pixel_code", "id", "code"],
     identity: ["identity_id", "id"],
+    campaign: ["campaign_id", "id"],
   };
   const names: Record<typeof kind, string[]> = {
     bc: ["bc_name", "business_center_name", "name"],
@@ -74,13 +75,14 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
     catalog: ["catalog_name", "name"],
     pixel: ["pixel_name", "name", "pixel_code", "code"],
     identity: ["display_name", "identity_name", "name"],
+    campaign: ["campaign_name", "name"],
   };
   return items.flatMap((item) => {
     const id = ids[kind].map((key) => readText(item[key])).find(Boolean);
     if (!id) return [];
     const name = names[kind].map((key) => readText(item[key])).find(Boolean) || id;
     const currency = ["currency", "advertiser_currency", "catalog_currency"].map((key) => readText(item[key])).find(Boolean);
-    const status = ["status", "advertiser_status"].map((key) => readText(item[key])).find(Boolean);
+    const status = ["status", "advertiser_status", "operation_status"].map((key) => readText(item[key])).find(Boolean);
     const type = kind === "identity" ? readText(item.identity_type) : undefined;
     return [{ id, name, currency: currency || undefined, status: status || undefined, type: type || undefined }];
   });
@@ -163,6 +165,30 @@ export async function loadCatalogs(accessToken: string, businessCenterId: string
   return normalize(dataItems(data), "catalog");
 }
 
+export async function loadAdvertiserCampaigns(accessToken: string, advertiserId: string) {
+  const pageSize = 100;
+  const firstPage = await request("/campaign/get/", accessToken, {
+    advertiser_id: advertiserId,
+    page: 1,
+    page_size: pageSize,
+    fields: JSON.stringify(["campaign_id", "campaign_name", "operation_status"]),
+  });
+  const pageInfo = firstPage.page_info as Record<string, unknown> | undefined;
+  const total = Number(pageInfo?.total_number ?? pageInfo?.total ?? 0);
+  const pages = Math.min(50, Math.max(1, Math.ceil(total / pageSize)));
+  const items = dataItems(firstPage);
+  for (let page = 2; page <= pages; page += 1) {
+    const data = await request("/campaign/get/", accessToken, {
+      advertiser_id: advertiserId,
+      page,
+      page_size: pageSize,
+      fields: JSON.stringify(["campaign_id", "campaign_name", "operation_status"]),
+    });
+    items.push(...dataItems(data));
+  }
+  return normalize(items, "campaign");
+}
+
 export async function loadAdvertiserAssets(accessToken: string, advertiserId: string): Promise<AdvertiserAssets> {
   const [info, pixels, identities] = await Promise.all([
     // advertiser/info is a batch endpoint in v1.3. The supported field is
@@ -195,11 +221,11 @@ export async function createPixel(accessToken: string, advertiserId: string, pix
   return requestPost("/pixel/create/", accessToken, { advertiser_id: advertiserId, pixel_category: "ONLINE_STORE", pixel_name: pixelName, partner_name: "ThorTk" });
 }
 
-export async function activateCampaigns(accessToken: string, advertiserId: string, campaignIds: string[]) {
+export async function pauseCampaigns(accessToken: string, advertiserId: string, campaignIds: string[]) {
   return requestPost("/campaign/status/update/", accessToken, {
     advertiser_id: advertiserId,
     campaign_ids: campaignIds,
-    operation_status: "ENABLE",
+    operation_status: "DISABLE",
   });
 }
 

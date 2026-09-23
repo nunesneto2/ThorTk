@@ -1,32 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { activateCampaigns, deleteCampaigns } from "@/lib/tiktok/assets";
+import { deleteCampaigns, loadAdvertiserCampaigns, loadOverview, pauseCampaigns } from "@/lib/tiktok/assets";
 import { decryptToken } from "@/lib/tiktok/oauth";
 
-type CampaignAction = "activate" | "delete";
+type CampaignAction = "pause" | "delete";
 type CampaignRecord = {
   id: string;
   advertiserId: string;
-  launchJobId: string;
-};
-type CampaignLog = {
-  launch_job_id: string;
-  tiktok_entity_id: string | null;
-  created_at: string;
-  level: string;
-  data: unknown;
-  launch_jobs: { advertiser_id: string; user_id: string } | { advertiser_id: string; user_id: string }[] | null;
+  name: string;
+  status?: string;
 };
 
 function responseError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function logAction(value: unknown) {
-  return value && typeof value === "object" && "action" in value
-    ? String((value as { action?: unknown }).action || "")
-    : "";
+function cleanIds(value: unknown) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((id) => String(id).trim())
+      .filter(Boolean),
+  )];
 }
 
 async function currentConnection() {
@@ -41,33 +36,26 @@ async function currentConnection() {
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return { userId, admin, connection };
+  return { connection };
 }
 
-async function registeredCampaigns(current: NonNullable<Awaited<ReturnType<typeof currentConnection>>>) {
-  const { data, error } = await current.admin
-    .from("launch_logs")
-    .select("launch_job_id,tiktok_entity_id,created_at,level,data,launch_jobs!inner(advertiser_id,user_id)")
-    .eq("stage", "campaign")
-    .not("tiktok_entity_id", "is", null)
-    .eq("launch_jobs.user_id", current.userId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
+async function campaignsForSelectedAdvertisers(accessToken: string, advertiserIds: string[]) {
+  const overview = await loadOverview(accessToken);
+  const authorized = new Set(overview.advertisers.map((advertiser) => advertiser.id));
+  const forbidden = advertiserIds.find((id) => !authorized.has(id));
+  if (forbidden) throw new Error("A conta " + forbidden + " não pertence à autorização atual do TikTok.");
 
-  const campaigns = new Map<string, CampaignRecord>();
-  for (const row of (data ?? []) as CampaignLog[]) {
-    const job = Array.isArray(row.launch_jobs) ? row.launch_jobs[0] : row.launch_jobs;
-    const id = row.tiktok_entity_id?.trim();
-    if (!job?.advertiser_id || !id) continue;
-    const key = `${job.advertiser_id}:${id}`;
-    if (logAction(row.data) === "deleted") {
-      campaigns.delete(key);
-      continue;
-    }
-    if (row.level !== "success") continue;
-    campaigns.set(key, { id, advertiserId: job.advertiser_id, launchJobId: row.launch_job_id });
+  const campaigns: CampaignRecord[] = [];
+  for (const advertiserId of advertiserIds) {
+    const records = await loadAdvertiserCampaigns(accessToken, advertiserId);
+    campaigns.push(...records.map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      advertiserId,
+    })));
   }
-  return [...campaigns.values()];
+  return campaigns;
 }
 
 function chunks<T>(items: T[], size: number) {
@@ -76,14 +64,18 @@ function chunks<T>(items: T[], size: number) {
   );
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const ids = cleanIds(request.nextUrl.searchParams.get("advertiser_ids")?.split(","));
+    if (!ids.length) return NextResponse.json({ campaigns: [] });
     const current = await currentConnection();
     if (!current) return responseError("Sessão operacional não encontrada.", 401);
-    return NextResponse.json({ campaigns: await registeredCampaigns(current) });
+    if (!current.connection) return responseError("Conecte o TikTok antes de consultar campanhas.", 409);
+    const token = decryptToken(current.connection.access_token_ciphertext);
+    return NextResponse.json({ campaigns: await campaignsForSelectedAdvertisers(token, ids) });
   } catch (error) {
-    console.error("[tiktok:campaigns] registry read failed", error);
-    return responseError(error instanceof Error ? error.message : "Não foi possível carregar as campanhas publicadas pela API.", 502);
+    console.error("[tiktok:campaigns] list failed", error);
+    return responseError(error instanceof Error ? error.message : "Não foi possível carregar as campanhas das contas selecionadas.", 502);
   }
 }
 
@@ -92,16 +84,18 @@ export async function POST(request: NextRequest) {
     const current = await currentConnection();
     if (!current) return responseError("Sessão operacional não encontrada.", 401);
     if (!current.connection) return responseError("Conecte o TikTok antes de gerenciar campanhas.", 409);
-    const body = await request.json().catch(() => null) as { action?: CampaignAction } | null;
-    if (body?.action !== "activate" && body?.action !== "delete") {
+    const body = await request.json().catch(() => null) as { action?: CampaignAction; advertiser_ids?: string[] } | null;
+    if (body?.action !== "pause" && body?.action !== "delete") {
       return responseError("Ação de campanha inválida.");
     }
-    const campaigns = await registeredCampaigns(current);
-    if (!campaigns.length) {
-      return responseError("Não há campanhas publicadas pela API do ThorTk para esta operação.", 409);
-    }
+    const advertiserIds = cleanIds(body.advertiser_ids);
+    if (!advertiserIds.length) return responseError("Selecione ao menos uma conta de anúncio.");
 
     const token = decryptToken(current.connection.access_token_ciphertext);
+    const campaigns = await campaignsForSelectedAdvertisers(token, advertiserIds);
+    if (!campaigns.length) {
+      return responseError("Não há campanhas nas contas selecionadas para esta operação.", 409);
+    }
     const byAdvertiser = new Map<string, CampaignRecord[]>();
     campaigns.forEach((campaign) => {
       byAdvertiser.set(campaign.advertiserId, [...(byAdvertiser.get(campaign.advertiserId) ?? []), campaign]);
@@ -111,8 +105,8 @@ export async function POST(request: NextRequest) {
     for (const [advertiserId, records] of byAdvertiser) {
       for (const batch of chunks(records, 20)) {
         try {
-          if (body.action === "activate") {
-            await activateCampaigns(token, advertiserId, batch.map((campaign) => campaign.id));
+          if (body.action === "pause") {
+            await pauseCampaigns(token, advertiserId, batch.map((campaign) => campaign.id));
           } else {
             await deleteCampaigns(token, advertiserId, batch.map((campaign) => campaign.id));
           }
@@ -126,27 +120,15 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-
-    if (completed.length) {
-      const action = body.action === "delete" ? "deleted" : "activated";
-      const { error } = await current.admin.from("launch_logs").insert(completed.map((campaign) => ({
-        launch_job_id: campaign.launchJobId,
-        level: "success",
-        stage: "campaign",
-        message: action === "deleted" ? "Campanha excluída pelo controle ThorTk." : "Campanha ativada pelo controle ThorTk.",
-        tiktok_entity_id: campaign.id,
-        data: { action, managed_by: "thortk" },
-      })));
-      if (error) throw new Error("O TikTok confirmou a alteração, mas não foi possível registrar a auditoria local. Não repita a ação sem conferir o Ads Manager.");
-    }
-
     return NextResponse.json({
       processed: completed.length,
       failed,
-      campaigns: await registeredCampaigns(current),
+      campaigns: body.action === "delete"
+        ? await campaignsForSelectedAdvertisers(token, advertiserIds)
+        : campaigns.map((campaign) => ({ ...campaign, status: "DISABLE" })),
     });
   } catch (error) {
     console.error("[tiktok:campaigns] management failed", error);
-    return responseError(error instanceof Error ? error.message : "Não foi possível alterar as campanhas publicadas pela API.", 502);
+    return responseError(error instanceof Error ? error.message : "Não foi possível alterar as campanhas selecionadas.", 502);
   }
 }
