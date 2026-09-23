@@ -406,6 +406,14 @@ export default function Home() {
         : Number(rate.replace(",", ".")) || 0;
     return value * fx;
   }, [accountCurrency, amount, inputCurrency, rate]);
+  const campaignDailyBudget = budget * Math.max(1, Number(groups) || 1);
+  const minimumCampaignBudget = selectedLaunchAdvertisers.some(
+    (advertiser) => advertiser.currency === "USD",
+  )
+    ? 50
+    : 0;
+  const budgetMeetsCampaignMinimum =
+    campaignDailyBudget >= minimumCampaignBudget;
   const ready = Boolean(
     bcId &&
       selectedLaunchAdvertisers.length &&
@@ -414,6 +422,7 @@ export default function Home() {
       selectedAccountsHaveAssets &&
       campaignName.trim() &&
       budget > 0 &&
+      budgetMeetsCampaignMinimum &&
       (proxy !== "DEDICATED" || proxyAddress.trim()),
   );
   const startPublication = useCallback(async () => {
@@ -1061,6 +1070,8 @@ export default function Home() {
               setRate={setRate}
               accountCurrency={accountCurrency}
               budget={budget}
+              campaignDailyBudget={campaignDailyBudget}
+              minimumCampaignBudget={minimumCampaignBudget}
               counts={counts}
               country={country}
               setCountry={setCountry}
@@ -1104,6 +1115,8 @@ export default function Home() {
               catalog={selectedCatalog}
               counts={counts}
               budget={budget}
+              campaignDailyBudget={campaignDailyBudget}
+              minimumCampaignBudget={minimumCampaignBudget}
               currency={accountCurrency}
               connected={overview.connected}
               selectedAccounts={selectedLaunchAdvertisers}
@@ -2715,6 +2728,8 @@ function StructureScreen({
   setAmount,
   accountCurrency,
   budget,
+  campaignDailyBudget,
+  minimumCampaignBudget,
   country,
   setCountry,
   language,
@@ -2754,6 +2769,8 @@ function StructureScreen({
   setRate: (v: string) => void;
   accountCurrency: string;
   budget: number;
+  campaignDailyBudget: number;
+  minimumCampaignBudget: number;
   counts: { campaigns: number; groups: number; ads: number };
   country: string;
   setCountry: (v: string) => void;
@@ -3071,6 +3088,13 @@ function StructureScreen({
           por grupo
         </span>
       </div>
+      {minimumCampaignBudget > 0 && (
+        <p
+          className={`mb-3 rounded-lg border px-3 py-2 text-xs font-semibold ${campaignDailyBudget >= minimumCampaignBudget ? "border-emerald-400/20 bg-emerald-400/[.06] text-emerald-200" : "border-amber-300/25 bg-amber-300/[.07] text-amber-100"}`}
+        >
+          TikTok exige mínimo de US$ 50/dia por campanha nesta conta. Total atual: {money(campaignDailyBudget, accountCurrency)}.
+        </p>
+      )}
       <div className="structure-grid">
         <MetricInput
           label="Campanhas"
@@ -3782,6 +3806,8 @@ function LaunchScreen({
   catalog,
   counts,
   budget,
+  campaignDailyBudget,
+  minimumCampaignBudget,
   currency,
   connected,
   selectedAccounts,
@@ -3802,6 +3828,8 @@ function LaunchScreen({
   catalog: Choice | null;
   counts: { campaigns: number; groups: number; ads: number };
   budget: number;
+  campaignDailyBudget: number;
+  minimumCampaignBudget: number;
   currency: string;
   connected: boolean;
   selectedAccounts: Choice[];
@@ -3858,10 +3886,15 @@ function LaunchScreen({
     {
       label: "Orçamento e nomenclatura",
       detail:
-        budget > 0 && name.trim()
+        budget > 0 && name.trim() && campaignDailyBudget >= minimumCampaignBudget
           ? `${money(budget, currency)} por grupo · ${name.trim()}`
+          : minimumCampaignBudget > 0
+            ? `TikTok exige pelo menos US$ 50/dia por campanha. Total atual: ${money(campaignDailyBudget, currency)}.`
           : "Informe orçamento e nome da campanha.",
-      complete: budget > 0 && Boolean(name.trim()),
+      complete:
+        budget > 0 &&
+        Boolean(name.trim()) &&
+        campaignDailyBudget >= minimumCampaignBudget,
     },
     {
       label: "Rota de saída",
