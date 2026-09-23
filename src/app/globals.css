@@ -118,7 +118,7 @@ select.thor-field option { background: #11181d; color: #f8fafc; }
 .journey-icon:hover { border-color: rgba(216,181,107,.7); transform: translateY(-1px); }
 .journey-active { border-color: #7ec6ff; color: #d7ebff; box-shadow: 0 0 0 3px rgba(11,25,35,.92), 0 0 18px rgba(101,181,255,.32), inset 0 0 12px rgba(76,167,255,.12); }
 .rocket-card, .rocket-section { border: 1px solid var(--thor-line); border-radius: var(--thor-radius-md); background: color-mix(in srgb, var(--thor-surface) 94%, transparent); box-shadow: inset 0 1px rgba(255,255,255,.02); }
-.rocket-section { padding: .9rem 1rem; }
+.rocket-section { padding: .8rem .9rem; }
 .rocket-input { width: 100%; height: var(--thor-control-height); border: 1px solid rgba(255,255,255,.08); border-radius: var(--thor-radius-sm); background: var(--thor-input); padding: .65rem .8rem; color: #f7f7f7; outline: none; transition: border-color .16s, box-shadow .16s; }
 .rocket-input::placeholder { color: #5a616b; }
 .rocket-input:focus { border-color: rgba(126,198,255,.72); box-shadow: 0 0 0 2px rgba(126,198,255,.12); }
@@ -138,24 +138,24 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .thor-title { font-family: "Asgard", "Asgard Wide", "God of Thunder", var(--font-cinzel), "Cinzel", serif; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: #f2f6fa; }
 .thor-title--storm { background: linear-gradient(180deg, #fff 0%, #bce9ff 45%, #36b7ff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(54,183,255,.16)); }
 .thor-title--asgard { background: linear-gradient(180deg, #f6e4ad 0%, #c69b48 60%, #8a6527 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.cta-chip { border: 1px solid transparent; border-radius: .4rem; background: #0d1114; padding: .68rem .85rem; font-size: .72rem; font-weight: 800; color: #ced1d6; transition: .16s ease; }
+.cta-chip { border: 1px solid transparent; border-radius: .4rem; background: #0d1114; padding: .6rem .75rem; font-size: .7rem; font-weight: 800; color: #ced1d6; transition: .16s ease; }
 .cta-chip:hover { background: #161c22; color: white; }
 .cta-selected { border-color: #d8b56b; background: #d8b56b; color: #141208; }
-.addon-card { display: flex; min-height: 72px; flex-direction: column; align-items: center; justify-content: center; gap: .45rem; border: 1px solid transparent; border-radius: .45rem; background: #0d1114; color: #b8bcc4; font-size: 9px; font-weight: 900; text-transform: uppercase; transition: .16s ease; }
+.addon-card { display: flex; min-height: 64px; flex-direction: column; align-items: center; justify-content: center; gap: .35rem; border: 1px solid transparent; border-radius: .45rem; background: #0d1114; color: #b8bcc4; font-size: 9px; font-weight: 900; text-transform: uppercase; transition: .16s ease; }
 .addon-card:hover { background: #161c22; color: #fff; }
 .addon-selected { border-color: #d8b56b; color: #e3c985; box-shadow: inset 0 0 0 1px rgba(216,181,107,.25); }
-.structure-grid { display: grid; gap: .8rem; grid-template-columns: repeat(4, minmax(0,1fr)); }
-.structure-metric { display: block; min-height: 128px; border: 1px solid rgba(164,183,205,.16); border-radius: .85rem; background: linear-gradient(145deg, #202733, #1a202a); padding: 1rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 12px 25px rgba(0,0,0,.12); transition: border-color .16s ease, transform .16s ease; }
+.structure-grid { display: grid; gap: .65rem; grid-template-columns: repeat(4, minmax(0,1fr)); }
+.structure-metric { display: block; min-height: 108px; border: 1px solid rgba(164,183,205,.16); border-radius: .75rem; background: linear-gradient(145deg, #202733, #1a202a); padding: .8rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 10px 20px rgba(0,0,0,.1); transition: border-color .16s ease, transform .16s ease; }
 .structure-metric:hover { border-color: rgba(126,198,255,.32); transform: translateY(-1px); }
-.structure-metric > span:first-child { display: block; margin-bottom: .7rem; font-size: 11px; font-weight: 900; letter-spacing: .065em; text-transform: uppercase; color: #b4bac5; }
-.metric-input-shell { display: flex; height: 54px; align-items: stretch; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: .55rem; background: #0d1217; box-shadow: inset 0 1px 5px rgba(0,0,0,.22); }
-.structure-metric input { min-width: 0; flex: 1; border: 0; background: transparent; color: #f7f8fa; font-size: 1.75rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; outline: none; padding: 0 .55rem; appearance: textfield; }
+.structure-metric > span:first-child { display: block; margin-bottom: .5rem; font-size: 10px; font-weight: 900; letter-spacing: .065em; text-transform: uppercase; color: #b4bac5; }
+.metric-input-shell { display: flex; height: 48px; align-items: stretch; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: .55rem; background: #0d1217; box-shadow: inset 0 1px 5px rgba(0,0,0,.22); }
+.structure-metric input { min-width: 0; flex: 1; border: 0; background: transparent; color: #f7f8fa; font-size: 1.35rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; outline: none; padding: 0 .45rem; appearance: textfield; }
 .structure-metric input::-webkit-inner-spin-button, .structure-metric input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .structure-metric--amount input { letter-spacing: -.035em; }
-.structure-metric--amount input.metric-value--medium { font-size: 1.4rem; }
-.structure-metric--amount input.metric-value--long { font-size: 1.12rem; }
-.metric-prefix { display: grid; place-items: center; padding-left: .6rem; color: #f2f5f8; font-size: 1rem; font-weight: 900; letter-spacing: -.025em; white-space: nowrap; }
-.metric-stepper { display: grid; width: 32px; flex: 0 0 32px; border-left: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); }
+.structure-metric--amount input.metric-value--medium { font-size: 1.12rem; }
+.structure-metric--amount input.metric-value--long { font-size: .92rem; }
+.metric-prefix { display: grid; place-items: center; padding-left: .5rem; color: #f2f5f8; font-size: .88rem; font-weight: 900; letter-spacing: -.025em; white-space: nowrap; }
+.metric-stepper { display: grid; width: 30px; flex: 0 0 30px; border-left: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025); }
 .metric-stepper button { display: grid; place-items: center; color: #aeb7c3; transition: background .14s ease, color .14s ease; }
 .metric-stepper button:hover { background: rgba(126,198,255,.13); color: #bce9ff; }
 .asgard-controller { --core-x: 0px; --core-y: 0px; position: relative; isolation: isolate; width: clamp(240px, 33vw, 360px); aspect-ratio: 1619 / 971; margin: -1.2rem auto -1.65rem; pointer-events: none; }
@@ -197,5 +197,5 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .console-orb { width: 20px; height: 20px; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; animation: console-spin 1s linear infinite; }
 @keyframes console-spin { to { transform: rotate(360deg); } }
 .console-close { min-width: 116px; border-radius: .5rem; background: linear-gradient(135deg,#ffe49a,#ffbe10); padding: .75rem 1.1rem; color: #161307; font-weight: 900; transition: .16s ease; }
-@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller { width: clamp(160px, 56vw, 220px); margin: -1rem auto -1.15rem; } .structure-metric { min-height: 112px; padding: .75rem; } .structure-metric > span:first-child { margin-bottom: .5rem; font-size: 9px; } .structure-metric input { font-size: 1.4rem; } .structure-metric--amount input.metric-value--medium { font-size: 1.15rem; } .structure-metric--amount input.metric-value--long { font-size: 1rem; } .metric-input-shell { height: 47px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } }
+@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller { width: clamp(160px, 56vw, 220px); margin: -1rem auto -1.15rem; } .structure-metric { min-height: 100px; padding: .7rem; } .structure-metric > span:first-child { margin-bottom: .45rem; font-size: 9px; } .structure-metric input { font-size: 1.2rem; } .structure-metric--amount input.metric-value--medium { font-size: 1rem; } .structure-metric--amount input.metric-value--long { font-size: .82rem; } .metric-input-shell { height: 44px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } }
 @media (prefers-reduced-motion: reduce) { .thor-crest, .console-orb, .asgard-controller *, .asgard-controller--complete .asgard-base { animation: none !important; transition: none !important; } .asgard-core { transform: translate(-50%, -50%) !important; will-change: auto; } }
