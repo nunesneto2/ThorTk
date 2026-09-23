@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
           advertiser_id: advertiserId,
           campaign_name: campaignLabel,
           objective_type: "PRODUCT_SALES",
-          campaign_type: "REGULAR",
+          campaign_type: "REGULAR_CAMPAIGN",
           campaign_product_source: "CATALOG",
           catalog_enabled: true,
           operation_status: "DISABLE",
