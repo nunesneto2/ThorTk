@@ -196,17 +196,6 @@ export async function POST(request: NextRequest) {
     const campaignCount = positiveInt(body?.campaigns);
     const groupCount = positiveInt(body?.adgroups_per_campaign);
     const adCount = positiveInt(body?.ads_per_adgroup);
-    const campaignBudget = budget * groupCount;
-    const usdAccounts = advertiserIds.filter((advertiserId) =>
-      overview.advertisers.some((advertiser) =>
-        advertiser.id === advertiserId && advertiser.currency === "USD",
-      ),
-    );
-    if (usdAccounts.length && campaignBudget < 50) {
-      throw new Error(
-        `O TikTok exige no mínimo US$ 50/dia por campanha nesta conta. O total configurado é US$ ${campaignBudget.toFixed(2)}.`,
-      );
-    }
     const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
     const startTime = campaignStart(delay);
     const ages = (body?.ages ?? []).map((age) => AGE_GROUPS[age]).filter(Boolean);
@@ -270,10 +259,9 @@ export async function POST(request: NextRequest) {
           campaign_name: campaignLabel,
           objective_type: "PRODUCT_SALES",
           campaign_type: "REGULAR_CAMPAIGN",
-          // The Marketing API only accepts campaign-owned budget modes here.
-          // Keep the total aligned with the amount configured per ad group.
-          budget_mode: "BUDGET_MODE_DAY",
-          budget: campaignBudget,
+          // ABO: the campaign has no own cap; every ad group below owns its
+          // daily budget (BUDGET_MODE_DAY + budget).
+          budget_mode: "BUDGET_MODE_INFINITE",
           campaign_product_source: "CATALOG",
           catalog_enabled: true,
           operation_status: "DISABLE",
