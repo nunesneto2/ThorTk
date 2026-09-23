@@ -194,6 +194,8 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .proxy-card small { color: #898f99; }
 .proxy-selected { border-color: #56a8ff; background: #11202a; color: #9dccff; }
 .rocket-launch-button { display: flex; width: 100%; align-items: center; justify-content: center; gap: .5rem; border: 1px solid #d8b56b; border-radius: .5rem; background: linear-gradient(135deg,#e3c985,#cda653); padding: 1rem; font-size: .8rem; font-weight: 900; text-transform: uppercase; letter-spacing: .07em; color: #161307; transition: .16s ease; }
+.connection-status-card { max-width: 760px; background: linear-gradient(135deg, rgba(16, 45, 39, .92), rgba(10, 25, 27, .92)); box-shadow: 0 12px 34px rgba(0,0,0,.16); }
+.connection-status-card__icon { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 50%; background: rgba(91, 225, 170, .12); color: #77e5b2; }
 .rocket-launch-button:hover:not(:disabled), .footer-next:hover:not(:disabled), .console-close:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .launch-check { display: flex; min-height: 78px; align-items: center; gap: .8rem; border: 1px solid rgba(255,255,255,.07); border-radius: .7rem; background: rgba(13,17,20,.78); padding: .85rem 1rem; }
 .launch-check-icon { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: .55rem; }

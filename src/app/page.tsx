@@ -51,7 +51,12 @@ type Detail = {
   identities: Choice[];
   warnings: string[];
 };
-type Notice = { tone: "success" | "warning" | "error"; text: string };
+type Notice = {
+  tone: "success" | "warning" | "error";
+  text: string;
+  /** Connection feedback belongs only to the Connect step. */
+  scope?: "connect";
+};
 type CatalogMode = "ALL" | "SETS";
 type OperatingSystem = "ALL" | "ANDROID" | "IOS";
 type AccountFilter = "ALL" | "ACTIVE" | "SUSPENDED" | "SELECTED";
@@ -114,7 +119,7 @@ const stageCopy = [
   ],
   ["Estrutura ABO", "Defina volume, orçamento, público e nomenclatura."],
   ["Rota de saída", "Defina o caminho de rede da operação."],
-  ["Preparar lançamento", "Revise cada ativo antes de enviar ao TikTok."],
+  ["Lançar campanhas", "Defina o início no TikTok e inicie a publicação."],
 ] as const;
 
 function money(value: number, currency: string) {
@@ -429,6 +434,7 @@ export default function Home() {
         setNotice({
           tone: "warning",
           text: "Conecte o TikTok para carregar ativos reais desta sessão.",
+          scope: "connect",
         });
       else {
         const firstSelected =
@@ -453,6 +459,7 @@ export default function Home() {
             " disponível(is); " +
             payload.advertisers.length +
             " conta(s) carregadas.",
+          scope: "connect",
         });
       }
     } catch (error) {
@@ -461,7 +468,8 @@ export default function Home() {
         text:
           error instanceof Error
             ? error.message
-            : "Falha ao carregar os ativos.",
+              : "Falha ao carregar os ativos.",
+        scope: "connect",
       });
     } finally {
       setLoading(null);
@@ -786,7 +794,7 @@ export default function Home() {
       />
       <div className="relative mx-auto flex min-h-[calc(100vh-60px)] max-w-[1720px] flex-col px-6 pb-5 pt-3 lg:px-10">
         <Journey step={step} onChange={go} />
-        {notice && (
+        {notice && (notice.scope !== "connect" || step === 0) && (
           <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
         )}
         {warnings.length > 0 && <Warnings items={warnings} />}
@@ -959,7 +967,7 @@ export default function Home() {
               apiCampaignCount={apiCampaigns.length}
               apiCampaignsLoading={apiCampaignsLoading}
               onManageCampaigns={requestCampaignAction}
-              onOpen={() => setShowConsole(true)}
+              onLaunch={() => setShowConsole(true)}
             />
           )}
         </section>
@@ -1200,21 +1208,34 @@ function NoticeBanner({
         ? "border-red-400/25 bg-red-400/[.08] text-red-100"
         : "border-amber-400/25 bg-amber-400/[.08] text-amber-100";
   return (
-    <div
-      className={`mt-3 flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-xs ${style}`}
+    <aside
+      className={`connection-status-card mt-4 flex items-start justify-between gap-4 rounded-xl border p-4 text-xs ${style}`}
+      aria-live="polite"
     >
-      <span className="flex items-center gap-2">
-        {notice.tone === "success" ? (
-          <CircleCheck size={15} />
-        ) : (
-          <CircleAlert size={15} />
-        )}
-        {notice.text}
+      <span className="flex min-w-0 items-start gap-3">
+        <span className="connection-status-card__icon">
+          {notice.tone === "success" ? (
+            <CircleCheck size={17} />
+          ) : (
+            <CircleAlert size={17} />
+          )}
+        </span>
+        <span className="min-w-0">
+          <b className="block text-sm">
+            {notice.tone === "success" ? "Canal TikTok sincronizado" : "Status da conexão"}
+          </b>
+          <small className="mt-1 block leading-5 opacity-80">{notice.text}</small>
+        </span>
       </span>
-      <button type="button" onClick={onClose}>
-        <X size={15} />
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Fechar status da conexão"
+        className="rounded-md p-1 opacity-70 transition hover:bg-white/[.08] hover:opacity-100"
+      >
+        <X size={16} />
       </button>
-    </div>
+    </aside>
   );
 }
 function Warnings({ items }: { items: string[] }) {
@@ -3629,7 +3650,7 @@ function LaunchScreen({
   apiCampaignCount,
   apiCampaignsLoading,
   onManageCampaigns,
-  onOpen,
+  onLaunch,
 }: {
   ready: boolean;
   name: string;
@@ -3648,7 +3669,7 @@ function LaunchScreen({
   apiCampaignCount: number;
   apiCampaignsLoading: boolean;
   onManageCampaigns: (action: CampaignAction) => void;
-  onOpen: () => void;
+  onLaunch: () => void;
 }) {
   const accountCount = selectedAccounts.length;
   const activeAccounts = selectedAccounts.filter(isOperationalAdvertiser).length;
@@ -3719,13 +3740,13 @@ function LaunchScreen({
   return (
     <div className="mx-auto max-w-[1180px] pt-4">
       <div className="mb-4">
-        <p className="section-label">Revisão de lançamento</p>
+        <p className="section-label">Publicação de campanhas</p>
         <h2 className="thor-title mt-2 text-3xl leading-none sm:text-4xl">
           Launch
         </h2>
         <p className="mt-2 text-sm font-semibold text-zinc-300">
-          Revise o checklist e escolha quando iniciar. {" "}
-          <span className="text-sky-300">Tudo pronto? Execute o pré-flight.</span>
+          Confira os ativos e defina quando as campanhas devem iniciar no TikTok. {" "}
+          <span className="text-sky-300">O envio começa assim que você clicar em iniciar publicação.</span>
         </p>
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -3764,8 +3785,8 @@ function LaunchScreen({
             <p className="mt-5 flex items-center gap-2 text-xs font-bold text-[#e7c677]">
               <Timer size={15} />
               {delay === 0
-                ? "Início previsto assim que o pré-flight for aprovado."
-                : `Início previsto para daqui a ${delay} minuto(s), após aprovação do pré-flight.`}
+                ? "As campanhas serão enviadas agora e iniciarão imediatamente no TikTok."
+                : `As campanhas serão enviadas agora e ficarão programadas no TikTok para iniciar daqui a ${delay} minuto(s).`}
             </p>
           </section>
         </div>
@@ -3832,16 +3853,16 @@ function LaunchScreen({
         <button
           type="button"
           disabled={!ready}
-          onClick={onOpen}
+          onClick={onLaunch}
           className="rocket-launch-button w-full sm:w-auto sm:min-w-[272px] disabled:opacity-40"
         >
           <CloudLightning size={19} />
-          Revisar fila de execução
+          Iniciar publicação
         </button>
       </div>
       {!ready && (
         <p className="mt-3 text-right text-xs text-amber-200">
-          Complete os itens pendentes para liberar o pré-flight.
+          Complete os itens pendentes para liberar a publicação.
         </p>
       )}
     </div>
@@ -3963,7 +3984,7 @@ function FooterNav({
         disabled={disabled}
         className="footer-next disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {step === 6 ? "Revisar fila" : "Próxima fase"}
+        {step === 6 ? "Iniciar publicação" : "Próxima fase"}
         <ArrowRight size={17} />
       </button>
     </footer>
@@ -4014,7 +4035,7 @@ function LaunchConsole({
         tone: catalog ? "info" : "error",
         message: catalog
           ? `Catálogo: ${catalog.name} · criativo dinâmico de catálogo selecionado.`
-          : "Catálogo pendente. A fila não pode ser publicada.",
+          : "Catálogo pendente. A publicação não pode iniciar.",
       },
     ];
     for (const account of accounts) {
@@ -4024,12 +4045,12 @@ function LaunchConsole({
         {
           id: `account-${account.id}`,
           tone: "queue",
-          message: `Conta ${account.name} (${account.id}) adicionada à fila serial.`,
+          message: `Conta ${account.name} (${account.id}) selecionada para publicação serial.`,
         },
         {
           id: `campaign-${account.id}`,
           tone: "queue",
-          message: `${counts.campaigns} campanha(s) serão criadas, uma por vez, com ${money(budget, currency)} por grupo.`,
+          message: `${counts.campaigns} campanha(s) serão enviadas, uma por vez, com ${money(budget, currency)} por grupo.`,
         },
         {
           id: `assets-${account.id}`,
@@ -4051,14 +4072,14 @@ function LaunchConsole({
       tone: "warning",
       message:
         delay === 0
-          ? "Modo seguro: a próxima operação só começa após o retorno da anterior."
-          : `Janela selecionada: +${delay} min. A ordem continua serial após o início.`,
+          ? "Início no TikTok: agora. A ordem de criação permanece serial por conta."
+          : `Início no TikTok: daqui a ${delay} min. O envio começa agora e a ordem de criação permanece serial.`,
     });
     if (!ready) {
       entries.push({
         id: "blocked",
         tone: "error",
-        message: "Execução bloqueada: complete as pendências do pré-flight antes de publicar.",
+        message: "Publicação bloqueada: complete os itens pendentes antes de iniciar.",
       });
     }
     return entries;
@@ -4083,7 +4104,7 @@ function LaunchConsole({
     const url = URL.createObjectURL(file);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "thortk-fila-de-publicacao.txt";
+    anchor.download = "thortk-execucao-de-publicacao.txt";
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -4095,14 +4116,14 @@ function LaunchConsole({
   ];
   return (
     <div className="modal-layer fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" aria-label="Fila de publicação" className="console-modal console-modal--queue">
+      <div role="dialog" aria-modal="true" aria-label="Execução de publicação" className="console-modal console-modal--queue">
         <div className="flex items-center justify-between gap-4 border-b border-white/[.08] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="console-orb" />
             <div>
-              <h2 className="text-lg font-black">Fila de publicação</h2>
+              <h2 className="text-lg font-black">Execução de publicação</h2>
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.1em] text-zinc-500">
-                Execução serial por conta
+                Publicação serial por conta
               </p>
             </div>
           </div>
@@ -4113,7 +4134,7 @@ function LaunchConsole({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Fechar fila de publicação"
+              aria-label="Fechar execução de publicação"
               className="rounded p-1 text-zinc-400 transition hover:bg-white/[.06] hover:text-white"
             >
               <X size={18} />
@@ -4178,7 +4199,7 @@ function LaunchConsole({
             <p className="text-sm font-black">
               Resumo: <span className="text-sky-300">{accounts.length * perAccountOperations} operações planejadas</span> · {" "}
               <span className={ready ? "text-[#f3ce62]" : "text-red-300"}>
-                {ready ? "1 execução serial pendente" : "pré-flight bloqueado"}
+                {ready ? "Envio serial pronto para iniciar" : "publicação bloqueada"}
               </span>
             </p>
             <p className="mt-2 text-[10px] leading-4 text-zinc-500">
