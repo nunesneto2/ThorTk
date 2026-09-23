@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { InstitutionalHome } from "@/components/institutional";
 
 export const metadata: Metadata = {
-  title: "ThorTk — Plataforma operacional para TikTok Ads",
-  description: "ThorTk organiza ativos e configurações operacionais para campanhas de catálogo no TikTok Ads.",
+  title: "ThorTk — Operational platform for TikTok Ads",
+  description: "ThorTk organizes assets and operational settings for catalog campaigns in TikTok Ads.",
 };
 
 export default function InstitutionalPage() {
