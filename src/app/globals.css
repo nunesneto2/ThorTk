@@ -219,6 +219,11 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .footer-abort:hover { color: #fff; }
 .footer-next { display: inline-flex; min-width: 194px; align-items: center; justify-content: center; gap: .6rem; border-radius: .25rem; background: #f4f4f1; padding: 1rem 1.25rem; color: #101113; font-size: .76rem; font-weight: 900; text-transform: uppercase; letter-spacing: .09em; transition: .16s ease; }
 .console-modal { width: min(100%, 750px); overflow: hidden; border: 1px solid rgba(255,255,255,.12); border-radius: .75rem; background: #1d222c; box-shadow: 0 32px 110px rgba(0,0,0,.66); }
+.console-modal--queue { width: min(100%, 820px); }
+.console-tab { border-radius: .35rem; padding: .5rem .65rem; color: #9ba4b1; font-size: .7rem; font-weight: 900; transition: background .14s ease, color .14s ease; }
+.console-tab:hover { background: rgba(255,255,255,.055); color: #eef2f5; }
+.console-tab--active { background: #323944; color: #f3f5f7; }
+.console-log { scrollbar-color: rgba(126,198,255,.34) transparent; }
 .console-orb { width: 20px; height: 20px; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; animation: console-spin 1s linear infinite; }
 @keyframes console-spin { to { transform: rotate(360deg); } }
 .console-close { min-width: 116px; border-radius: .5rem; background: linear-gradient(135deg,#ffe49a,#ffbe10); padding: .75rem 1.1rem; color: #161307; font-weight: 900; transition: .16s ease; }

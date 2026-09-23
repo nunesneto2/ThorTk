@@ -929,13 +929,15 @@ export default function Home() {
       )}
       {showConsole && (
         <LaunchConsole
-          name={campaignName}
           counts={counts}
           budget={budget}
           currency={accountCurrency}
           ready={ready}
           delay={launchDelay}
-          selectedAccounts={selectedLaunchAdvertisers.length}
+          accounts={selectedLaunchAdvertisers}
+          catalog={selectedCatalog}
+          pixelsByAdvertiser={pixelByAdvertiser}
+          identitiesByAdvertiser={identityByAdvertiser}
           onClose={() => setShowConsole(false)}
         />
       )}
@@ -3693,7 +3695,7 @@ function LaunchScreen({
           className="rocket-launch-button w-full sm:w-auto sm:min-w-[272px] disabled:opacity-40"
         >
           <CloudLightning size={19} />
-          Executar pré-flight
+          Revisar fila de execução
         </button>
       </div>
       {!ready && (
@@ -3727,90 +3729,181 @@ function FooterNav({
         disabled={disabled}
         className="footer-next disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {step === 6 ? "Preparar lançamento" : "Próxima fase"}
+        {step === 6 ? "Revisar fila" : "Próxima fase"}
         <ArrowRight size={17} />
       </button>
     </footer>
   );
 }
 function LaunchConsole({
-  name,
   counts,
   budget,
   currency,
   ready,
   delay,
-  selectedAccounts,
+  accounts,
+  catalog,
+  pixelsByAdvertiser,
+  identitiesByAdvertiser,
   onClose,
 }: {
-  name: string;
   counts: { campaigns: number; groups: number; ads: number };
   budget: number;
   currency: string;
   ready: boolean;
   delay: number;
-  selectedAccounts: number;
+  accounts: Choice[];
+  catalog: Choice | null;
+  pixelsByAdvertiser: Record<string, string>;
+  identitiesByAdvertiser: Record<string, string>;
   onClose: () => void;
 }) {
-  const logs = [
-    [
-      "✓",
-      `${selectedAccounts} conta(s) selecionada(s) para a estrutura atual.`,
-      "success",
-    ],
-    [
-      "✓",
-      `Orçamento: ${money(budget, currency)} por grupo · teto diário por conta: ${money(budget * counts.groups, currency)}.`,
-      "success",
-    ],
-    ["▶", `Campanha: ${name || "sem nome"}`, "info"],
-    [
-      "⚡",
-      `Estrutura: ${counts.campaigns} campanha(s) | ${counts.groups} grupo(s) | ${counts.ads} anúncio(s)`,
-      "info",
-    ],
-    [
-      ready ? "✓" : "!",
-      ready
-        ? delay === 0
-          ? "Pré-flight aprovado. A configuração está pronta para publicação pela integração de campanhas."
-          : `Pré-flight aprovado. A janela de início está definida para +${delay} minuto(s).`
-        : "Pré-flight bloqueado: complete os ativos e dados pendentes.",
-      ready ? "success" : "error",
-    ],
-  ] as const;
+  type LogTone = "queue" | "info" | "warning" | "error";
+  type LogEntry = { id: string; tone: LogTone; message: string };
+  const [filter, setFilter] = useState<"all" | LogTone>("all");
+  const [query, setQuery] = useState("");
+  const [copied, setCopied] = useState(false);
+  const createdAt = useMemo(
+    () => new Date().toLocaleTimeString("pt-BR", { hour12: false }),
+    [],
+  );
+  const perAccountOperations = counts.campaigns + counts.groups + counts.ads;
+  const logs = useMemo<LogEntry[]>(() => {
+    const entries: LogEntry[] = [
+      {
+        id: "currency",
+        tone: "info",
+        message: `Valores em ${currency}: ${money(budget, currency)} por grupo, sem conversão adicional.`,
+      },
+      {
+        id: "catalog",
+        tone: catalog ? "info" : "error",
+        message: catalog
+          ? `Catálogo: ${catalog.name} · criativo dinâmico de catálogo selecionado.`
+          : "Catálogo pendente. A fila não pode ser publicada.",
+      },
+    ];
+    for (const account of accounts) {
+      const pixel = pixelsByAdvertiser[account.id];
+      const identity = identitiesByAdvertiser[account.id];
+      entries.push(
+        {
+          id: `account-${account.id}`,
+          tone: "queue",
+          message: `Conta ${account.name} (${account.id}) adicionada à fila serial.`,
+        },
+        {
+          id: `campaign-${account.id}`,
+          tone: "queue",
+          message: `${counts.campaigns} campanha(s) serão criadas, uma por vez, com ${money(budget, currency)} por grupo.`,
+        },
+        {
+          id: `assets-${account.id}`,
+          tone: pixel && identity ? "info" : "error",
+          message:
+            pixel && identity
+              ? `Ativos confirmados · Pixel ${pixel} · Identity ${identity}.`
+              : "Pixel ou Identity pendente nesta conta.",
+        },
+        {
+          id: `structure-${account.id}`,
+          tone: "queue",
+          message: `Após cada campanha, criar ${counts.groups} grupo(s) e ${counts.ads} anúncio(s) por grupo antes da próxima campanha.`,
+        },
+      );
+    }
+    entries.push({
+      id: "sequence",
+      tone: "warning",
+      message:
+        delay === 0
+          ? "Modo seguro: a próxima operação só começa após o retorno da anterior."
+          : `Janela selecionada: +${delay} min. A ordem continua serial após o início.`,
+    });
+    if (!ready) {
+      entries.push({
+        id: "blocked",
+        tone: "error",
+        message: "Execução bloqueada: complete as pendências do pré-flight antes de publicar.",
+      });
+    }
+    return entries;
+  }, [accounts, budget, catalog, counts.ads, counts.campaigns, counts.groups, currency, delay, identitiesByAdvertiser, pixelsByAdvertiser, ready]);
+  const visibleLogs = logs.filter((entry) => {
+    const matchesFilter = filter === "all" || entry.tone === filter;
+    return matchesFilter && entry.message.toLowerCase().includes(query.trim().toLowerCase());
+  });
+  const countFor = (tone: LogTone) => logs.filter((entry) => entry.tone === tone).length;
+  const copyLogs = async () => {
+    await navigator.clipboard?.writeText(
+      logs.map((entry) => `[${createdAt}] ${entry.message}`).join("\n"),
+    );
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
+  const exportLogs = () => {
+    const file = new Blob(
+      [logs.map((entry) => `[${createdAt}] ${entry.message}`).join("\n")],
+      { type: "text/plain;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(file);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "thortk-fila-de-publicacao.txt";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+  const tabs: { key: "all" | LogTone; label: string; count: number }[] = [
+    { key: "all", label: "Todos", count: logs.length },
+    { key: "error", label: "Erros", count: countFor("error") },
+    { key: "warning", label: "Avisos", count: countFor("warning") },
+    { key: "queue", label: "Na fila", count: countFor("queue") },
+  ];
   return (
     <div className="modal-layer fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" className="console-modal">
-        <div className="flex items-center justify-between border-b border-white/[.08] px-6 py-5">
+      <div role="dialog" aria-modal="true" aria-label="Fila de publicação" className="console-modal console-modal--queue">
+        <div className="flex items-center justify-between gap-4 border-b border-white/[.08] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="console-orb" />
-            <h2 className="text-xl font-black">Pré-flight de lançamento</h2>
+            <div>
+              <h2 className="text-lg font-black">Fila de publicação</h2>
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.1em] text-zinc-500">
+                Execução serial por conta
+              </p>
+            </div>
           </div>
           <div className="flex gap-2">
-            <span className="rounded bg-[#143d2c] px-2 py-1 text-[10px] font-black text-emerald-200">
-              VALIDAÇÃO
+            <span className="rounded bg-[#413716] px-2 py-1 text-[10px] font-black text-[#f4da73]">
+              {countFor("warning")} aviso
             </span>
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-red-400/40 px-3 py-1 text-[10px] font-black text-red-300"
+              aria-label="Fechar fila de publicação"
+              className="rounded p-1 text-zinc-400 transition hover:bg-white/[.06] hover:text-white"
             >
-              PARAR
+              <X size={18} />
             </button>
           </div>
         </div>
-        <div className="p-6">
-          <div className="flex items-center justify-between border-b border-white/[.06] pb-3 text-xs">
-            <div className="flex gap-5 text-zinc-400">
-              <b className="rounded bg-zinc-700 px-3 py-2 text-zinc-100">
-                Todos ({logs.length})
-              </b>
-              <span>Erros ({ready ? 0 : 1})</span>
-              <span>Avisos (0)</span>
-              <span>Sucesso ({ready ? logs.length - 1 : logs.length - 1})</span>
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[.06] pb-3 text-xs">
+            <div className="flex flex-wrap gap-1.5 text-zinc-400">
+              {tabs.map((tab) => (
+                <button
+                  type="button"
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={`console-tab ${filter === tab.key ? "console-tab--active" : ""}`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
             </div>
-            <span className="text-sky-300">Copiar · Exportar</span>
+            <div className="flex items-center gap-3 font-bold text-sky-300">
+              <button type="button" onClick={() => void copyLogs()}>{copied ? "Copiado" : "Copiar"}</button>
+              <button type="button" onClick={exportLogs}>Exportar</button>
+            </div>
           </div>
           <label className="relative mt-4 block">
             <Search
@@ -3820,42 +3913,60 @@ function LaunchConsole({
             <input
               className="rocket-input h-9 pl-9 text-xs"
               placeholder="Buscar nos logs..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
             />
           </label>
-          <div className="mt-5 h-[245px] space-y-3 overflow-y-auto font-mono text-xs leading-5">
-            {logs.map(([mark, text, tone], index) => (
+          <div className="console-log mt-3 h-[238px] space-y-2 overflow-y-auto pr-1 font-mono text-[11px] leading-5">
+            {visibleLogs.map((entry) => (
               <p
-                key={index}
+                key={entry.id}
                 className={
-                  tone === "success"
-                    ? "text-emerald-300"
-                    : tone === "error"
+                  entry.tone === "error"
                       ? "text-red-300"
-                      : "text-sky-300"
+                      : entry.tone === "warning"
+                        ? "text-[#f3ce62]"
+                        : entry.tone === "queue"
+                          ? "text-sky-300"
+                          : "text-zinc-300"
                 }
               >
                 <span className="mr-3 opacity-60">
-                  [{new Date().toLocaleTimeString("pt-BR", { hour12: false })}]
+                  [{createdAt}]
                 </span>
-                <b className="mr-2">{mark}</b>
-                {text}
+                <b className="mr-2">{entry.tone === "queue" ? "⌛" : entry.tone === "warning" ? "!" : entry.tone === "error" ? "×" : "·"}</b>
+                {entry.message}
               </p>
             ))}
+            {!visibleLogs.length && <p className="py-10 text-center text-zinc-500">Nenhum log encontrado.</p>}
           </div>
-          <div className="mt-5 border-t border-white/[.08] pt-4">
-            <p className="font-black">
-              Resumo: {" "}
-              <span className={ready ? "text-emerald-300" : "text-red-300"}>
-                {ready ? "pronto para publicação" : "pendências encontradas"}
+          <div className="mt-4 border-t border-white/[.08] pt-4">
+            <p className="text-sm font-black">
+              Resumo: <span className="text-sky-300">{accounts.length * perAccountOperations} operações planejadas</span> · {" "}
+              <span className={ready ? "text-[#f3ce62]" : "text-red-300"}>
+                {ready ? "1 execução serial pendente" : "pré-flight bloqueado"}
               </span>
             </p>
-            <p className="mt-4 text-[10px] font-black uppercase tracking-[.13em] text-zinc-500">
-              Este pré-flight valida a configuração de catálogo. A publicação
-              real exige apenas a integração Campaign Management autorizada.
+            <p className="mt-2 text-[10px] leading-4 text-zinc-500">
+              A publicação nunca deve abrir tarefas em paralelo: campanha → grupos → anúncios, depois a próxima campanha e a próxima conta.
             </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {accounts.map((account) => (
+                <a
+                  key={account.id}
+                  href={advertiserUrl(account.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-w-0 items-center justify-between rounded-md border border-sky-300/20 bg-[#162334] px-3 py-2 text-xs font-bold text-sky-300 hover:border-sky-300/50"
+                >
+                  <span className="truncate">{account.name}</span>
+                  <ExternalLink size={14} />
+                </a>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="flex justify-center border-t border-white/[.08] px-6 py-5">
+        <div className="flex justify-center border-t border-white/[.08] px-5 py-4">
           <button type="button" onClick={onClose} className="console-close">
             Fechar
           </button>
