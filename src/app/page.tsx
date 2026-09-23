@@ -216,7 +216,7 @@ export default function Home() {
   const [proxyAddress, setProxyAddress] = useState("");
   const [campaignName, setCampaignName] = useState("");
   const [inputCurrency, setInputCurrency] = useState("USD");
-  const [amount, setAmount] = useState("20000");
+  const [amount, setAmount] = useState("100");
   const [rate, setRate] = useState("0.30");
   const [campaigns, setCampaigns] = useState("1");
   const [groups, setGroups] = useState("1");
@@ -648,7 +648,7 @@ export default function Home() {
     setGroups("3");
     setAds("1");
     setInputCurrency("USD");
-    setAmount("20000");
+    setAmount("100");
     setCountry("US");
     setLanguage("en");
     setCta("LEARN_MORE");
