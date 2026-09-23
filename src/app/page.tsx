@@ -206,14 +206,14 @@ export default function Home() {
   const [proxy, setProxy] = useState("DIRECT");
   const [proxyAddress, setProxyAddress] = useState("");
   const [campaignName, setCampaignName] = useState("");
-  const [inputCurrency, setInputCurrency] = useState("MXN");
+  const [inputCurrency, setInputCurrency] = useState("USD");
   const [amount, setAmount] = useState("20000");
   const [rate, setRate] = useState("0.30");
   const [campaigns, setCampaigns] = useState("1");
   const [groups, setGroups] = useState("1");
   const [ads, setAds] = useState("1");
-  const [country, setCountry] = useState("MX");
-  const [language, setLanguage] = useState("es");
+  const [country, setCountry] = useState("US");
+  const [language, setLanguage] = useState("en");
   const [aigc, setAigc] = useState(false);
   const [cpa, setCpa] = useState(false);
   const [clickWindow, setClickWindow] = useState("7-day click");
@@ -549,10 +549,10 @@ export default function Home() {
     setCampaigns("1");
     setGroups("3");
     setAds("1");
-    setInputCurrency("MXN");
+    setInputCurrency("USD");
     setAmount("20000");
-    setCountry("MX");
-    setLanguage("es");
+    setCountry("US");
+    setLanguage("en");
     setCta("LEARN_MORE");
     setAddon("NONE");
     setAigc(false);
@@ -561,7 +561,7 @@ export default function Home() {
     setOperatingSystem("ALL");
     setNotice({
       tone: "success",
-      text: "Preset ABO México aplicado à configuração atual.",
+      text: "Preset ABO padrão (Estados Unidos) aplicado à configuração atual.",
     });
   };
   const openAssetAction = (action: "identity" | "pixel") => {
