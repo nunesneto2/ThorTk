@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomInt } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -6,6 +7,7 @@ import {
   createAdgroup,
   createCampaign,
   loadAdvertiserAssets,
+  loadAdvertiserCampaigns,
   loadCatalogs,
   loadOverview,
   updateAdgroupStatus,
@@ -86,6 +88,22 @@ function campaignStart(delayMinutes: number) {
   const date = new Date(Date.now() + Math.max(0, delayMinutes) * 60_000);
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+function uniqueCampaignName(baseName: string, existingNames: Set<string>) {
+  if (!existingNames.has(baseName)) {
+    existingNames.add(baseName);
+    return baseName;
+  }
+
+  for (let attempt = 0; attempt < 900; attempt += 1) {
+    const candidate = `${baseName} ${randomInt(100, 1000)}`;
+    if (!existingNames.has(candidate)) {
+      existingNames.add(candidate);
+      return candidate;
+    }
+  }
+  throw new Error(`Não foi possível gerar um nome único para a campanha “${baseName}”.`);
 }
 
 function entityId(data: Record<string, unknown>, keys: string[]) {
@@ -205,6 +223,7 @@ export async function POST(request: NextRequest) {
     const language = body?.language && body.language !== "all" ? [body.language] : undefined;
     const pixels = body?.pixels_by_advertiser ?? {};
     const identities = body?.identities_by_advertiser ?? {};
+    const existingCampaignNames = new Map<string, Set<string>>();
 
     const { data: businessCenter, error: businessCenterError } = await admin
       .from("tiktok_business_centers")
@@ -236,6 +255,11 @@ export async function POST(request: NextRequest) {
       if (!assets.identities.some((identity) => identity.id === identityId)) {
         throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
       }
+      const currentCampaigns = await loadAdvertiserCampaigns(token, advertiserId);
+      existingCampaignNames.set(
+        advertiserId,
+        new Set(currentCampaigns.map((campaign) => campaign.name)),
+      );
     }
 
     totalOperations = advertiserIds.length * campaignCount * (1 + groupCount + groupCount * adCount + 1);
@@ -252,7 +276,19 @@ export async function POST(request: NextRequest) {
 
       for (let campaignIndex = 0; campaignIndex < campaignCount; campaignIndex += 1) {
         const suffix = campaignCount > 1 ? ` ${String(campaignIndex + 1).padStart(2, "0")}` : "";
-        const campaignLabel = `${campaignName}${suffix}`;
+        const requestedCampaignLabel = `${campaignName}${suffix}`;
+        const campaignLabel = uniqueCampaignName(
+          requestedCampaignLabel,
+          existingCampaignNames.get(advertiserId) ?? new Set<string>(),
+        );
+        if (campaignLabel !== requestedCampaignLabel) {
+          await log(
+            "info",
+            "campaign",
+            "started",
+            `O nome “${requestedCampaignLabel}” já existe; usando “${campaignLabel}”.`,
+          );
+        }
         await log("info", "campaign", "started", `Criando campanha “${campaignLabel}” na conta ${advertiserId}.`);
         const campaignResponse = await createCampaign(token, {
           advertiser_id: advertiserId,
