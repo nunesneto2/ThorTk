@@ -5,6 +5,8 @@ import {
   createAd,
   createAdgroup,
   createCampaign,
+  loadAdvertiserAssets,
+  loadCatalogs,
   loadOverview,
   updateAdgroupStatus,
   updateAdStatus,
@@ -117,7 +119,7 @@ async function activeConnection() {
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return connection;
+  return { connection, admin, userId };
 }
 
 export async function POST(request: NextRequest) {
@@ -182,19 +184,21 @@ export async function POST(request: NextRequest) {
     if (!locationId) throw new Error("O país selecionado ainda não possui localização TikTok configurada.");
 
     await log("info", "preflight", "started", "Validando autorização, contas e configuração antes de publicar.");
-    const connection = await activeConnection();
-    if (!connection) throw new Error("Conecte o TikTok antes de iniciar a publicação.");
+    const current = await activeConnection();
+    if (!current?.connection) throw new Error("Conecte o TikTok antes de iniciar a publicação.");
+    const { connection, admin, userId } = current;
     const token = decryptToken(connection.access_token_ciphertext);
     const overview = await loadOverview(token);
     const allowed = new Set(overview.advertisers.map((item) => item.id));
     const blocked = advertiserIds.find((id) => !allowed.has(id));
     if (blocked) throw new Error(`A conta ${blocked} não pertence à autorização atual do TikTok.`);
 
-    const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
-    const startTime = campaignStart(delay);
     const campaignCount = positiveInt(body?.campaigns);
     const groupCount = positiveInt(body?.adgroups_per_campaign);
     const adCount = positiveInt(body?.ads_per_adgroup);
+    const campaignBudget = budget * groupCount;
+    const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
+    const startTime = campaignStart(delay);
     const ages = (body?.ages ?? []).map((age) => AGE_GROUPS[age]).filter(Boolean);
     const operatingSystems = body?.operating_system === "ALL" || !body?.operating_system
       ? undefined
@@ -202,13 +206,23 @@ export async function POST(request: NextRequest) {
     const language = body?.language && body.language !== "all" ? [body.language] : undefined;
     const pixels = body?.pixels_by_advertiser ?? {};
     const identities = body?.identities_by_advertiser ?? {};
-    totalOperations = advertiserIds.length * campaignCount * (1 + groupCount + groupCount * adCount + 1);
-    await log(
-      "success",
-      "preflight",
-      "succeeded",
-      `Validação concluída. ${totalOperations} ação(ões) serão executadas em sequência; início no TikTok: ${delay ? `+${delay} min` : "agora"}.`,
-    );
+
+    const { data: businessCenter, error: businessCenterError } = await admin
+      .from("tiktok_business_centers")
+      .select("bc_id")
+      .eq("user_id", userId)
+      .eq("bc_id", businessCenterId)
+      .eq("is_selected", true)
+      .maybeSingle();
+    if (businessCenterError) throw businessCenterError;
+    if (!businessCenter) {
+      throw new Error("Selecione e conecte o Business Center antes de publicar.");
+    }
+
+    const catalogs = await loadCatalogs(token, businessCenterId);
+    if (!catalogs.some((catalog) => catalog.id === catalogId)) {
+      throw new Error("O catálogo selecionado não está disponível neste Business Center.");
+    }
 
     for (const advertiserId of advertiserIds) {
       const pixelId = pixels[advertiserId]?.trim();
@@ -216,6 +230,26 @@ export async function POST(request: NextRequest) {
       if (!pixelId || !identityId) {
         throw new Error(`Pixel ou Identity ausente na conta ${advertiserId}. Nenhuma campanha foi ativada.`);
       }
+      const assets = await loadAdvertiserAssets(token, advertiserId);
+      if (!assets.pixels.some((pixel) => pixel.id === pixelId)) {
+        throw new Error(`O pixel selecionado não está disponível na conta ${advertiserId}.`);
+      }
+      if (!assets.identities.some((identity) => identity.id === identityId)) {
+        throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
+      }
+    }
+
+    totalOperations = advertiserIds.length * campaignCount * (1 + groupCount + groupCount * adCount + 1);
+    await log(
+      "success",
+      "preflight",
+      "succeeded",
+      `Validação concluída. BC, catálogo, pixels e Identities confirmados. ${totalOperations} ação(ões) serão executadas em sequência; início no TikTok: ${delay ? `+${delay} min` : "agora"}.`,
+    );
+
+    for (const advertiserId of advertiserIds) {
+      const pixelId = pixels[advertiserId]!.trim();
+      const identityId = identities[advertiserId]!.trim();
 
       for (let campaignIndex = 0; campaignIndex < campaignCount; campaignIndex += 1) {
         const suffix = campaignCount > 1 ? ` ${String(campaignIndex + 1).padStart(2, "0")}` : "";
@@ -226,7 +260,10 @@ export async function POST(request: NextRequest) {
           campaign_name: campaignLabel,
           objective_type: "PRODUCT_SALES",
           campaign_type: "REGULAR_CAMPAIGN",
-          budget_mode: "BUDGET_MODE_ADGROUP",
+          // The Marketing API only accepts campaign-owned budget modes here.
+          // Keep the total aligned with the amount configured per ad group.
+          budget_mode: "BUDGET_MODE_DAY",
+          budget: campaignBudget,
           campaign_product_source: "CATALOG",
           catalog_enabled: true,
           operation_status: "DISABLE",
