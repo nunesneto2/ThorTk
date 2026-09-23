@@ -22,6 +22,8 @@ import {
   Search,
   ShieldCheck,
   Timer,
+  Trash2,
+  Play,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -57,6 +59,12 @@ type AssetProgress = {
   current: number;
   total: number;
   entries: { advertiserId: string; name: string; tone: "success" | "error" }[];
+};
+type CampaignAction = "activate" | "delete";
+type ApiCampaign = {
+  id: string;
+  advertiserId: string;
+  launchJobId: string;
 };
 
 const currencies = [
@@ -230,6 +238,11 @@ export default function Home() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [showConsole, setShowConsole] = useState(false);
   const [launchDelay, setLaunchDelay] = useState(5);
+  const [apiCampaigns, setApiCampaigns] = useState<ApiCampaign[]>([]);
+  const [apiCampaignsLoading, setApiCampaignsLoading] = useState(false);
+  const [campaignAction, setCampaignAction] = useState<CampaignAction | null>(null);
+  const [campaignConfirmation, setCampaignConfirmation] = useState("");
+  const [campaignActionLoading, setCampaignActionLoading] = useState(false);
   const [assetAction, setAssetAction] = useState<"identity" | "pixel" | null>(
     null,
   );
@@ -267,6 +280,82 @@ export default function Home() {
   const selectedAccountsOperational =
     selectedLaunchAdvertisers.length > 0 &&
     selectedLaunchAdvertisers.every(isOperationalAdvertiser);
+  const loadApiCampaigns = useCallback(async () => {
+    setApiCampaignsLoading(true);
+    try {
+      const response = await fetch("/api/tiktok/campaigns", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as {
+        campaigns?: ApiCampaign[];
+        error?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Não foi possível consultar as campanhas publicadas pelo ThorTk.");
+      }
+      setApiCampaigns(payload?.campaigns ?? []);
+    } catch (error) {
+      setApiCampaigns([]);
+      console.warn("[tiktok:campaigns] registry unavailable", error);
+    } finally {
+      setApiCampaignsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step !== 6 || !overview.connected) return;
+    const timer = window.setTimeout(() => void loadApiCampaigns(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadApiCampaigns, overview.connected, step]);
+
+  const requestCampaignAction = useCallback((action: CampaignAction) => {
+    setCampaignConfirmation("");
+    setCampaignAction(action);
+  }, []);
+
+  const executeCampaignAction = useCallback(async () => {
+    if (!campaignAction) return;
+    const expected =
+      campaignAction === "delete"
+        ? "EXCLUIR CAMPANHAS API"
+        : "ATIVAR CAMPANHAS API";
+    if (campaignConfirmation.trim().toLocaleUpperCase("pt-BR") !== expected) return;
+    setCampaignActionLoading(true);
+    try {
+      const response = await fetch("/api/tiktok/campaigns", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: campaignAction }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        campaigns?: ApiCampaign[];
+        processed?: number;
+        failed?: { message: string }[];
+        error?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "O TikTok não confirmou a alteração.");
+      }
+      setApiCampaigns(payload?.campaigns ?? []);
+      const processed = payload?.processed ?? 0;
+      const failed = payload?.failed?.length ?? 0;
+      setNotice({
+        tone: failed ? "warning" : "success",
+        text: failed
+          ? `${processed} campanha(s) processada(s); ${failed} não foram alteradas.`
+          : campaignAction === "delete"
+            ? `${processed} campanha(s) do ThorTk excluída(s).`
+            : `${processed} campanha(s) do ThorTk ativada(s).`,
+      });
+      setCampaignAction(null);
+      setCampaignConfirmation("");
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Não foi possível alterar as campanhas.",
+      });
+    } finally {
+      setCampaignActionLoading(false);
+    }
+  }, [campaignAction, campaignConfirmation]);
   const accountCurrency =
     details.advertiser?.currency ?? selectedAdvertiser?.currency ?? "BRL";
   const counts = useMemo(() => {
@@ -858,6 +947,9 @@ export default function Home() {
               proxyReady={proxy !== "DEDICATED" || Boolean(proxyAddress.trim())}
               delay={launchDelay}
               onDelay={setLaunchDelay}
+              apiCampaignCount={apiCampaigns.length}
+              apiCampaignsLoading={apiCampaignsLoading}
+              onManageCampaigns={requestCampaignAction}
               onOpen={() => setShowConsole(true)}
             />
           )}
@@ -939,6 +1031,21 @@ export default function Home() {
           pixelsByAdvertiser={pixelByAdvertiser}
           identitiesByAdvertiser={identityByAdvertiser}
           onClose={() => setShowConsole(false)}
+        />
+      )}
+      {campaignAction && (
+        <CampaignActionModal
+          action={campaignAction}
+          campaignCount={apiCampaigns.length}
+          confirmation={campaignConfirmation}
+          submitting={campaignActionLoading}
+          onConfirmation={setCampaignConfirmation}
+          onClose={() => {
+            if (campaignActionLoading) return;
+            setCampaignAction(null);
+            setCampaignConfirmation(String());
+          }}
+          onConfirm={() => void executeCampaignAction()}
         />
       )}
     </main>
@@ -3510,6 +3617,9 @@ function LaunchScreen({
   proxyReady,
   delay,
   onDelay,
+  apiCampaignCount,
+  apiCampaignsLoading,
+  onManageCampaigns,
   onOpen,
 }: {
   ready: boolean;
@@ -3526,6 +3636,9 @@ function LaunchScreen({
   proxyReady: boolean;
   delay: number;
   onDelay: (minutes: number) => void;
+  apiCampaignCount: number;
+  apiCampaignsLoading: boolean;
+  onManageCampaigns: (action: CampaignAction) => void;
   onOpen: () => void;
 }) {
   const accountCount = selectedAccounts.length;
@@ -3668,20 +3781,39 @@ function LaunchScreen({
           </div>
           <button
             type="button"
-            disabled
-            title="Disponível quando houver campanhas publicadas pela API."
+            disabled={!apiCampaignCount || apiCampaignsLoading}
+            onClick={() => onManageCampaigns("activate")}
+            title={
+              apiCampaignCount
+                ? `Ativa somente ${apiCampaignCount} campanha(s) publicada(s) pela API do ThorTk.`
+                : "Disponível quando houver campanhas publicadas pela API do ThorTk."
+            }
             className="launch-manage-action launch-manage-action--pause"
           >
-            Pausar campanhas publicadas
+            <Play size={15} fill="currentColor" />
+            Ativar campanhas da API
           </button>
           <button
             type="button"
-            disabled
-            title="Disponível quando houver campanhas publicadas pela API."
+            disabled={!apiCampaignCount || apiCampaignsLoading}
+            onClick={() => onManageCampaigns("delete")}
+            title={
+              apiCampaignCount
+                ? `Exclui somente ${apiCampaignCount} campanha(s) publicada(s) pela API do ThorTk.`
+                : "Disponível quando houver campanhas publicadas pela API do ThorTk."
+            }
             className="launch-manage-action launch-manage-action--delete"
           >
+            <Trash2 size={15} />
             Excluir campanhas publicadas
           </button>
+          <p className="launch-managed-note">
+            {apiCampaignsLoading
+              ? "Conferindo campanhas registradas pelo ThorTk…"
+              : apiCampaignCount
+                ? `${apiCampaignCount} campanha(s) registrada(s) pela API do ThorTk.`
+                : "Ações isoladas: apenas campanhas registradas pelo ThorTk aparecerão aqui."}
+          </p>
         </aside>
       </div>
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -3706,6 +3838,99 @@ function LaunchScreen({
     </div>
   );
 }
+
+function CampaignActionModal({
+  action,
+  campaignCount,
+  confirmation,
+  submitting,
+  onConfirmation,
+  onClose,
+  onConfirm,
+}: {
+  action: CampaignAction;
+  campaignCount: number;
+  confirmation: string;
+  submitting: boolean;
+  onConfirmation: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isDelete = action === "delete";
+  const phrase = isDelete ? "EXCLUIR CAMPANHAS API" : "ATIVAR CAMPANHAS API";
+  const confirmed = confirmation.trim().toLocaleUpperCase("pt-BR") === phrase;
+  const title = isDelete
+    ? "Excluir campanhas da API"
+    : "Ativar campanhas da API";
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm" role="presentation">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="campaign-action-title"
+        className={`campaign-action-modal ${isDelete ? "campaign-action-modal--delete" : ""}`}
+      >
+        <button
+          type="button"
+          aria-label="Fechar confirmação"
+          className="campaign-action-dismiss"
+          disabled={submitting}
+          onClick={onClose}
+        >
+          <X size={19} />
+        </button>
+        <div className={`campaign-action-symbol ${isDelete ? "campaign-action-symbol--delete" : ""}`}>
+          {isDelete ? <Trash2 size={28} /> : <ShieldCheck size={29} />}
+        </div>
+        <p className="section-label text-center">Confirmação de operação</p>
+        <h2 id="campaign-action-title" className="thor-title mt-2 text-center text-2xl">
+          {title}
+        </h2>
+        <p className={`mt-3 text-center text-sm font-black ${isDelete ? "text-red-300" : "text-sky-300"}`}>
+          {isDelete ? "Esta ação é irreversível." : "Apenas campanhas registradas pelo ThorTk serão ativadas."}
+        </p>
+        <p className="campaign-action-copy">
+          A ação será aplicada a <b>{campaignCount}</b> campanha(s) criada(s) pela API do ThorTk.
+          Campanhas feitas no Ads Manager ou em outra integração permanecem intocadas.
+        </p>
+        <form
+          className="mt-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (confirmed && !submitting) onConfirm();
+          }}
+        >
+          <label htmlFor="campaign-action-confirmation" className="campaign-action-label">
+            Para confirmar, digite: <b>{phrase}</b>
+          </label>
+          <input
+            id="campaign-action-confirmation"
+            value={confirmation}
+            onChange={(event) => onConfirmation(event.target.value)}
+            autoComplete="off"
+            autoFocus
+            placeholder="Digite a confirmação"
+            className="campaign-action-input"
+          />
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button type="button" className="campaign-action-cancel" disabled={submitting} onClick={onClose}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={!confirmed || submitting}
+              className={`campaign-action-confirm ${isDelete ? "campaign-action-confirm--delete" : ""}`}
+            >
+              {submitting ? <Loader2 size={17} className="animate-spin" /> : isDelete ? <Trash2 size={16} /> : <Play size={16} fill="currentColor" />}
+              {submitting ? "Processando" : isDelete ? "Excluir tudo" : "Ativar campanhas"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function FooterNav({
   step,
   onBack,

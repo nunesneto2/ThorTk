@@ -194,3 +194,18 @@ export async function createCustomIdentity(accessToken: string, advertiserId: st
 export async function createPixel(accessToken: string, advertiserId: string, pixelName: string) {
   return requestPost("/pixel/create/", accessToken, { advertiser_id: advertiserId, pixel_category: "ONLINE_STORE", pixel_name: pixelName, partner_name: "ThorTk" });
 }
+
+export async function activateCampaigns(accessToken: string, advertiserId: string, campaignIds: string[]) {
+  return requestPost("/campaign/status/update/", accessToken, {
+    advertiser_id: advertiserId,
+    campaign_ids: campaignIds,
+    operation_status: "ENABLE",
+  });
+}
+
+export async function deleteCampaigns(accessToken: string, advertiserId: string, campaignIds: string[]) {
+  return requestPost("/campaign/delete/", accessToken, {
+    advertiser_id: advertiserId,
+    campaign_ids: campaignIds,
+  });
+}
