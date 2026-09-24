@@ -48,6 +48,14 @@ type Overview = {
   advertisers: Choice[];
   warnings: string[];
 };
+type BusinessCenterFinance = {
+  businessCenterId: string;
+  todaySpend: number | null;
+  balance: number | null;
+  currency?: string;
+  updatedAt?: string;
+  warnings: string[];
+};
 type Detail = {
   advertiser: Choice | null;
   pixels: Choice[];
@@ -61,6 +69,19 @@ type Notice = {
   scope?: "connect";
 };
 const CONNECT_NOTICE_TIMEOUT_MS = 5_000;
+
+function formatMoney(value: number | null, currency?: string) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  try {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: currency || "USD",
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${currency || ""} ${value.toFixed(2)}`.trim();
+  }
+}
 type CatalogMode = "ALL" | "SETS";
 type OperatingSystem = "ALL" | "ANDROID" | "IOS";
 type AccountFilter = "ALL" | "ACTIVE" | "SUSPENDED" | "SELECTED";
@@ -211,6 +232,8 @@ export default function Home() {
     advertisers: [],
     warnings: [],
   });
+  const [finance, setFinance] = useState<BusinessCenterFinance | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
   const [details, setDetails] = useState<Detail>({
     advertiser: null,
     pixels: [],
@@ -665,6 +688,36 @@ export default function Home() {
       setLoading(null);
     }
   }, []);
+  const loadFinance = useCallback(async (businessCenterId: string) => {
+    if (!businessCenterId) {
+      setFinance(null);
+      return;
+    }
+    setFinanceLoading(true);
+    try {
+      const response = await fetch(
+        `/api/tiktok/finance?bc_id=${encodeURIComponent(businessCenterId)}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | (BusinessCenterFinance & { error?: string })
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Não foi possível carregar o financeiro da BC.");
+      }
+      setFinance(payload);
+    } catch (error) {
+      console.warn("[tiktok:finance] unavailable", error);
+      setFinance(null);
+    } finally {
+      setFinanceLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (!overview.connected || !bcId) return;
+    const timer = window.setTimeout(() => void loadFinance(bcId), 0);
+    return () => window.clearTimeout(timer);
+  }, [bcId, loadFinance, overview.connected]);
   const toggleBusinessCenter = useCallback(
     async (id: string, selected: boolean) => {
       setLoading("overview");
@@ -983,6 +1036,9 @@ export default function Home() {
         connected={overview.connected}
         bcs={connectedBusinessCenters.length}
         loading={loading === "overview"}
+        finance={overview.connected && bcId ? finance : null}
+        financeLoading={financeLoading}
+        businessCenterName={selectedBc?.name}
         onRefresh={loadOverview}
         onPreset={applyPreset}
       />
@@ -1268,12 +1324,18 @@ function RocketHeader({
   connected,
   bcs,
   loading,
+  finance,
+  financeLoading,
+  businessCenterName,
   onRefresh,
   onPreset,
 }: {
   connected: boolean;
   bcs: number;
   loading: boolean;
+  finance: BusinessCenterFinance | null;
+  financeLoading: boolean;
+  businessCenterName?: string;
   onRefresh: () => void;
   onPreset: () => void;
 }) {
@@ -1289,9 +1351,21 @@ function RocketHeader({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HeaderChip tone="blue" text={`BCs ${bcs}`} />
-          <HeaderChip tone="red" text="GASTO HOJE 0,00" />
-          <HeaderChip tone="green" text="SALDO --" />
+          <HeaderChip
+            tone="blue"
+            text={`BCs ${bcs}`}
+            title={businessCenterName ? `Financeiro de ${businessCenterName}` : "Selecione uma Business Center"}
+          />
+          <HeaderChip
+            tone="red"
+            text={financeLoading ? "GASTO HOJE…" : `GASTO HOJE ${formatMoney(finance?.todaySpend ?? null, finance?.currency)}`}
+            title="Total gasto hoje pelas contas desta Business Center"
+          />
+          <HeaderChip
+            tone="green"
+            text={financeLoading ? "SALDO…" : `SALDO ${formatMoney(finance?.balance ?? null, finance?.currency)}`}
+            title="Saldo disponível retornado pelo TikTok para esta Business Center"
+          />
           <button
             type="button"
             onClick={onPreset}
@@ -1318,9 +1392,11 @@ function RocketHeader({
 function HeaderChip({
   tone,
   text,
+  title,
 }: {
   tone: "blue" | "red" | "green";
   text: string;
+  title?: string;
 }) {
   const color =
     tone === "blue"
@@ -1328,7 +1404,7 @@ function HeaderChip({
       : tone === "red"
         ? "border-red-400/25 text-red-300"
         : "border-emerald-400/25 text-emerald-300";
-  return <span className={`header-chip hidden sm:flex ${color}`}>{text}</span>;
+  return <span title={title} className={`header-chip hidden sm:flex ${color}`}>{text}</span>;
 }
 function Journey({
   step,

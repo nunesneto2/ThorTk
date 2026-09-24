@@ -30,6 +30,14 @@ export type PixelEvent = {
 };
 export type AssetOverview = { businessCenters: Choice[]; advertisers: Choice[]; warnings: string[] };
 export type AdvertiserAssets = { advertiser: Choice | null; pixels: Choice[]; identities: Choice[]; warnings: string[] };
+export type BusinessCenterFinance = {
+  businessCenterId: string;
+  todaySpend: number | null;
+  balance: number | null;
+  currency?: string;
+  updatedAt: string;
+  warnings: string[];
+};
 
 class TikTokApiError extends Error {
   constructor(message: string, requestId?: string) {
@@ -40,6 +48,37 @@ class TikTokApiError extends Error {
 
 function readText(value: unknown) {
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function readNumber(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function findValue(
+  value: unknown,
+  keys: string[],
+  depth = 0,
+): unknown {
+  if (!value || depth > 5 || typeof value !== "object") return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findValue(item, keys, depth + 1);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    if (record[key] !== undefined) return record[key];
+  }
+  for (const item of Object.values(record)) {
+    const found = findValue(item, keys, depth + 1);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }
 
 function pixelEvents(item: Record<string, unknown>): PixelEvent[] {
@@ -221,7 +260,15 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   const recordsById = new Map(normalize(dataItems(advertiserInfo.data ?? undefined), "advertiser").map((item) => [item.id, item]));
   const advertiserChoices = authorizedAdvertisers.map((item) => {
     const current = recordsById.get(item.id);
-    return current ? { ...item, name: current.name || item.name, currency: current.currency || item.currency, status: current.status } : item;
+    return current
+      ? {
+        ...item,
+        name: current.name || item.name,
+        currency: current.currency || item.currency,
+        status: current.status,
+        businessCenterId: current.businessCenterId || item.businessCenterId,
+      }
+      : item;
   });
   let businessCenters = normalize(dataItems(bc.data ?? undefined), "bc");
   let derivedWarning: string | null = null;
@@ -244,6 +291,79 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
     businessCenters,
     advertisers: advertiserChoices,
     warnings: [bc.warning, advertisers.warning, advertiserInfo.warning, derivedWarning].filter((warning): warning is string => Boolean(warning)),
+  };
+}
+
+export async function loadBusinessCenterFinance(
+  accessToken: string,
+  businessCenterId: string,
+): Promise<BusinessCenterFinance> {
+  const overview = await loadOverview(accessToken);
+  const advertisers = overview.advertisers.filter(
+    (item) => item.businessCenterId === businessCenterId,
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const [balanceResult, ...spendResults] = await Promise.allSettled([
+    request("/bc/balance/get/", accessToken, { bc_id: businessCenterId }),
+    ...advertisers.map((advertiser) =>
+      request("/report/integrated/get/", accessToken, {
+        advertiser_id: advertiser.id,
+        report_type: "BASIC",
+        data_level: "AUCTION_ADVERTISER",
+        dimensions: JSON.stringify(["stat_time_day"]),
+        metrics: JSON.stringify(["spend"]),
+        start_date: today,
+        end_date: today,
+      }),
+    ),
+  ]);
+
+  const warnings = [...overview.warnings];
+  let balance: number | null = null;
+  let currency: string | undefined;
+  if (balanceResult.status === "fulfilled") {
+    balance = readNumber(
+      findValue(balanceResult.value, [
+        "available_balance",
+        "valid_balance",
+        "valid_account_balance",
+        "account_balance",
+        "balance",
+      ]),
+    );
+    currency = readText(
+      findValue(balanceResult.value, ["currency", "account_currency"]),
+    ) || undefined;
+    if (balance === null) {
+      warnings.push("O TikTok não retornou um saldo disponível para esta BC.");
+    }
+  } else {
+    warnings.push(
+      `Saldo da BC: ${balanceResult.reason instanceof Error ? balanceResult.reason.message : "indisponível"}`,
+    );
+  }
+
+  const spendValues = spendResults.flatMap((result) => {
+    if (result.status === "rejected") {
+      warnings.push(
+        `Gasto de hoje: ${result.reason instanceof Error ? result.reason.message : "indisponível"}`,
+      );
+      return [];
+    }
+    const spend = readNumber(findValue(result.value, ["spend"]));
+    return spend === null ? [0] : [spend];
+  });
+  if (!advertisers.length) {
+    warnings.push("Nenhuma conta de anúncio vinculada a esta BC foi retornada para calcular o gasto de hoje.");
+  }
+  const currencies = [...new Set(advertisers.map((item) => item.currency).filter(Boolean))];
+  return {
+    businessCenterId,
+    todaySpend: spendResults.length === advertisers.length ? spendValues.reduce((total, value) => total + value, 0) : null,
+    balance,
+    currency: currency || (currencies.length === 1 ? currencies[0] : undefined),
+    updatedAt: new Date().toISOString(),
+    warnings,
   };
 }
 
