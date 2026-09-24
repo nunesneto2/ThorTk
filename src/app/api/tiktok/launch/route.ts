@@ -460,11 +460,9 @@ export async function POST(request: NextRequest) {
             // PRODUCT_SALES is the campaign objective. The ad group itself
             // must declare the website promotion surface for catalog traffic.
             promotion_type: "WEBSITE",
-            // Rocket's manual catalog flow leaves product_link empty: TikTok
-            // then uses each catalog item's own link. In the Marketing API
-            // this is represented by UNSET (not PRODUCT_LINK, which is not an
-            // accepted enum for this endpoint/account type).
-            promotion_website_type: "UNSET",
+            // Do not send promotion_website_type here. PRODUCT_LINK is not an
+            // ad-group enum (TikTok accepts only UNSET or TIKTOK_NATIVE_PAGE)
+            // and the catalog product link is configured on the creative.
             // PRODUCT_SALES catalog delivery is a Video Shopping Ad. TikTok
             // requires both fields below even when no remarketing audience is
             // selected; omitting them produces only the generic parameter error.
@@ -559,6 +557,11 @@ export async function POST(request: NextRequest) {
                 dynamic_format: "UNSET",
                 ad_format: "SINGLE_VIDEO",
                 vertical_video_strategy: "CATALOG_VIDEOS",
+                // Product link must be set on the catalog creative. SHOPPING_ADS
+                // tells TikTok to use the product_url from every catalog item
+                // (Rocket's manual flow has an empty product_link for this
+                // reason), rather than leaving Website type as Select.
+                shopping_ads_fallback_type: "SHOPPING_ADS",
                 dynamic_destination: "UNSET",
                 operation_status: "DISABLE",
               }],
