@@ -8,6 +8,7 @@ import {
   createCampaign,
   loadAdvertiserAssets,
   loadAdvertiserCampaigns,
+  loadCatalogAvailableCountries,
   loadCatalogs,
   loadCatalogOverview,
   loadOverview,
@@ -275,6 +276,16 @@ export async function POST(request: NextRequest) {
       throw new Error(`O catálogo “${selectedCatalog.name}” usa ${selectedCatalog.currency}. Selecione ${catalogCountry} em País (location) antes de publicar.`);
     }
     try {
+      const allowedCountries = await loadCatalogAvailableCountries(token, businessCenterId);
+      if (allowedCountries.length && !allowedCountries.includes(country)) {
+        throw new Error(`O catálogo “${selectedCatalog.name}” não aceita entrega em ${country}. Países permitidos pelo TikTok: ${allowedCountries.join(", ")}.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "não disponível";
+      if (message.includes("não aceita entrega")) throw error;
+      await log("info", "preflight", "started", `Não foi possível confirmar os países permitidos pelo catálogo agora: ${message}`);
+    }
+    try {
       const catalogOverview = await loadCatalogOverview(token, businessCenterId, catalogId);
       if (catalogOverview.approved === 0) {
         throw new Error(`O catálogo “${selectedCatalog.name}” não tem produtos aprovados pelo TikTok; não é possível criar um anúncio de catálogo.`);
@@ -398,6 +409,7 @@ export async function POST(request: NextRequest) {
             ...(language ? { languages: language } : {}),
             ...(ages.length ? { age_groups: ages } : {}),
             ...(operatingSystems ? { operating_systems: operatingSystems } : {}),
+            gender: "GENDER_UNLIMITED",
             operation_status: "DISABLE",
           };
 
@@ -408,9 +420,9 @@ export async function POST(request: NextRequest) {
             const message = error instanceof Error ? error.message : "";
             if (!message.includes("Parameter error")) throw error;
 
-            // Catalogs owned by the same advertiser do not accept the BC
-            // authorization fields. Retry the same group (not a new campaign)
-            // with TikTok's minimal catalog-ad schema.
+            // Keep the catalog and customized identity bindings, which are
+            // required by the Rocket/TikTok catalog flow. Isolate only the
+            // optional placement mode on the retry, in the same campaign.
             await log(
               "info",
               "adgroup",
@@ -418,8 +430,6 @@ export async function POST(request: NextRequest) {
               "TikTok recusou campos estendidos; tentando o payload mínimo oficial do catálogo na mesma campanha.",
             );
             const minimalCatalogPayload = { ...adgroupPayload };
-            delete minimalCatalogPayload.identity_authorized_bc_id;
-            delete minimalCatalogPayload.identity_type;
             delete minimalCatalogPayload.placement_type;
             groupResponse = await createAdgroup(token, minimalCatalogPayload);
           }
