@@ -6,13 +6,13 @@ import {
   createAd,
   createAdgroup,
   createCampaign,
+  createWebsitePurchaseEvent,
   loadAdvertiserAssets,
   loadAdvertiserCampaigns,
   loadCatalogAvailableCountries,
   loadCatalogs,
   loadCatalogOverview,
   loadOverview,
-  loadPixelEventStats,
   updateAdgroupStatus,
   updateAdStatus,
   updateCampaignStatus,
@@ -151,29 +151,6 @@ function entityId(data: Record<string, unknown>, keys: string[]) {
   return find(data);
 }
 
-// Values shown by Events Manager (for example, "Purchase") are not always
-// the enum accepted by adgroup/create. Walk TikTok's read-only event stats
-// response so preflight can select a real Ads optimization event instead of
-// creating a paused campaign and failing afterwards.
-function collectTikTokEventCodes(value: unknown, codes = new Set<string>(), depth = 0): Set<string> {
-  if (depth > 8 || value === null || value === undefined) return codes;
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectTikTokEventCodes(item, codes, depth + 1));
-    return codes;
-  }
-  if (typeof value !== "object") return codes;
-  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (
-      typeof item === "string"
-      && ["event", "event_name", "event_type", "optimization_event", "pixel_event"].includes(key.toLowerCase())
-    ) {
-      codes.add(item.trim().toUpperCase());
-    }
-    collectTikTokEventCodes(item, codes, depth + 1);
-  }
-  return codes;
-}
-
 async function activeConnection() {
   const session = await createClient();
   const { data: claims } = await session.auth.getClaims();
@@ -281,7 +258,6 @@ export async function POST(request: NextRequest) {
     const identities = body?.identities_by_advertiser ?? {};
     const existingCampaignNames = new Map<string, Set<string>>();
     const identityTypes = new Map<string, string>();
-    const optimizationEvents = new Map<string, string>();
 
     const { data: businessCenter, error: businessCenterError } = await admin
       .from("tiktok_business_centers")
@@ -348,22 +324,6 @@ export async function POST(request: NextRequest) {
       if (!assets.pixels.some((pixel) => pixel.id === pixelId)) {
         throw new Error(`O pixel selecionado não está disponível na conta ${advertiserId}.`);
       }
-      await log("info", "preflight", "started", `Consultando o evento de otimização elegível do pixel ${pixelId}.`);
-      const pixelEventStats = await loadPixelEventStats(token, advertiserId, pixelId);
-      const eventCodes = collectTikTokEventCodes(pixelEventStats);
-      // Purchase is the Events API standard-event label.  Product Sales
-      // adgroups require an Ads optimization enum; use only a code that the
-      // selected pixel actually reports to TikTok as an eligible purchase.
-      const optimizationEvent = ["ON_WEB_ORDER", "DEEP_PURCHASE"].find((event) => eventCodes.has(event));
-      if (!optimizationEvent) {
-        const reported = [...eventCodes].slice(0, 12);
-        throw new Error(
-          `O pixel ${pixelId} está conectado, mas o TikTok Ads não expôs um evento de compra elegível para otimização. `
-          + `${reported.length ? `Eventos retornados: ${reported.join(", ")}. ` : ""}`
-          + "O evento de servidor ‘Purchase’ não pode ser enviado diretamente neste campo; selecione/configure no Ads Manager uma conversão web elegível (ON_WEB_ORDER ou DEEP_PURCHASE) para este pixel antes de publicar.",
-        );
-      }
-      optimizationEvents.set(advertiserId, optimizationEvent);
       const selectedIdentity = assets.identities.find((identity) => identity.id === identityId);
       if (!selectedIdentity) {
         throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
@@ -388,8 +348,6 @@ export async function POST(request: NextRequest) {
       const pixelId = pixels[advertiserId]!.trim();
       const identityId = identities[advertiserId]!.trim();
       const identityType = identityTypes.get(advertiserId);
-      const optimizationEvent = optimizationEvents.get(advertiserId);
-      if (!optimizationEvent) throw new Error(`Evento de otimização ausente para o pixel da conta ${advertiserId}.`);
 
       for (let campaignIndex = 0; campaignIndex < campaignCount; campaignIndex += 1) {
         const suffix = campaignCount > 1 ? ` ${String(campaignIndex + 1).padStart(2, "0")}` : "";
@@ -456,7 +414,8 @@ export async function POST(request: NextRequest) {
             pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
-            optimization_event: optimizationEvent,
+            // Website Purchase is represented by ON_WEB_ORDER in the Ads API.
+            optimization_event: "ON_WEB_ORDER",
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
@@ -473,25 +432,45 @@ export async function POST(request: NextRequest) {
             operation_status: "DISABLE",
           };
 
+          const createWithPlacementFallback = async () => {
+            try {
+              return await createAdgroup(token, adgroupPayload);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "";
+              if (!message.includes("Parameter error")) throw error;
+
+              // Keep the catalog and customized identity bindings, which are
+              // required by the Rocket/TikTok catalog flow. Isolate only the
+              // optional placement mode on the retry, in the same campaign.
+              await log(
+                "info",
+                "adgroup",
+                "started",
+                "TikTok recusou a primeira variação; mantendo catálogo, BC e Identity e repetindo sem o modo opcional de placement.",
+              );
+              const minimalCatalogPayload = { ...adgroupPayload };
+              delete minimalCatalogPayload.placement_type;
+              return createAdgroup(token, minimalCatalogPayload);
+            }
+          };
+
           let groupResponse: Record<string, unknown>;
           try {
-            groupResponse = await createAdgroup(token, adgroupPayload);
+            groupResponse = await createWithPlacementFallback();
           } catch (error) {
             const message = error instanceof Error ? error.message : "";
-            if (!message.includes("Parameter error")) throw error;
+            const missingPurchaseEvent = message.includes("This pixel event type does not exist") || message.includes("Select a pixel event");
+            if (!missingPurchaseEvent) throw error;
 
-            // Keep the catalog and customized identity bindings, which are
-            // required by the Rocket/TikTok catalog flow. Isolate only the
-            // optional placement mode on the retry, in the same campaign.
             await log(
               "info",
               "adgroup",
               "started",
-              "TikTok recusou a primeira variação; mantendo catálogo, BC e Identity e repetindo sem o modo opcional de placement.",
+              "A conversão de compra ainda não estava registrada para este pixel; criando o mapeamento Purchase → ON_WEB_ORDER e repetindo o grupo.",
             );
-            const minimalCatalogPayload = { ...adgroupPayload };
-            delete minimalCatalogPayload.placement_type;
-            groupResponse = await createAdgroup(token, minimalCatalogPayload);
+            await createWebsitePurchaseEvent(token, advertiserId, pixelId);
+            await log("success", "adgroup", "succeeded", "Conversão de compra registrada no pixel; repetindo a criação do grupo.");
+            groupResponse = await createWithPlacementFallback();
           }
           const adgroupId = entityId(groupResponse, ["adgroup_id", "id"]);
           if (!adgroupId) throw new Error(`O TikTok não retornou o ID do grupo da campanha ${campaignId}.`);
