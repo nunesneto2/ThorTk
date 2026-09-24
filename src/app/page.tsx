@@ -241,8 +241,8 @@ export default function Home() {
   const [campaigns, setCampaigns] = useState("1");
   const [groups, setGroups] = useState("1");
   const [ads, setAds] = useState("1");
-  const [country, setCountry] = useState("US");
-  const [language, setLanguage] = useState("en");
+  const [country, setCountry] = useState("BR");
+  const [language, setLanguage] = useState("pt");
   const [aigc, setAigc] = useState(false);
   const [cpa, setCpa] = useState(false);
   const [clickWindow, setClickWindow] = useState("7-day click");
