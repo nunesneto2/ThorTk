@@ -259,6 +259,10 @@ export default function Home() {
   const [ages, setAges] = useState(["18–24", "25–34", "35–44", "45–54", "55+"]);
   const [operatingSystem, setOperatingSystem] =
     useState<OperatingSystem>("ALL");
+  // Keep audience interactions closed by default. The API receives the
+  // inverse (`*_disabled`) values when each ad group is created.
+  const [allowComments, setAllowComments] = useState(false);
+  const [allowVideoDownloads, setAllowVideoDownloads] = useState(false);
   const [showRegions, setShowRegions] = useState(false);
   const [regions, setRegions] = useState<string[]>([]);
   const [loading, setLoading] = useState<
@@ -464,6 +468,8 @@ export default function Home() {
           language,
           ages,
           operating_system: operatingSystem,
+          allow_comments: allowComments,
+          allow_video_downloads: allowVideoDownloads,
           click_window: clickWindow,
           view_window: viewWindow,
           counting,
@@ -569,7 +575,7 @@ export default function Home() {
     } finally {
       setLaunchSubmitting(false);
     }
-  }, [adText, ads, ages, bcId, budget, campaignName, campaigns, catalogId, clickWindow, counting, country, cta, groups, identityByAdvertiser, language, launchDelay, launchSubmitting, loadApiCampaigns, operatingSystem, pixelByAdvertiser, ready, selectedAdvertiserIds, viewWindow]);
+  }, [adText, ads, ages, allowComments, allowVideoDownloads, bcId, budget, campaignName, campaigns, catalogId, clickWindow, counting, country, cta, groups, identityByAdvertiser, language, launchDelay, launchSubmitting, loadApiCampaigns, operatingSystem, pixelByAdvertiser, ready, selectedAdvertiserIds, viewWindow]);
   const warnings = overview.warnings.concat(details.warnings);
   const filteredAdvertisers = overview.advertisers
     .filter((item) =>
@@ -1109,6 +1115,10 @@ export default function Home() {
               onAges={setAges}
               operatingSystem={operatingSystem}
               onOperatingSystem={setOperatingSystem}
+              allowComments={allowComments}
+              onAllowComments={setAllowComments}
+              allowVideoDownloads={allowVideoDownloads}
+              onAllowVideoDownloads={setAllowVideoDownloads}
               showRegions={showRegions}
               onShowRegions={() => setShowRegions((value) => !value)}
               regions={regions}
@@ -2762,6 +2772,10 @@ function StructureScreen({
   onAges,
   operatingSystem,
   onOperatingSystem,
+  allowComments,
+  onAllowComments,
+  allowVideoDownloads,
+  onAllowVideoDownloads,
   showRegions,
   onShowRegions,
   regions,
@@ -2802,6 +2816,10 @@ function StructureScreen({
   onAges: (value: string[]) => void;
   operatingSystem: OperatingSystem;
   onOperatingSystem: (value: OperatingSystem) => void;
+  allowComments: boolean;
+  onAllowComments: (value: boolean) => void;
+  allowVideoDownloads: boolean;
+  onAllowVideoDownloads: (value: boolean) => void;
   showRegions: boolean;
   onShowRegions: () => void;
   regions: string[];
@@ -3333,6 +3351,39 @@ function StructureScreen({
           </div>
         </section>
       </div>
+      <section className="rocket-section mt-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="section-label">Interações do público</p>
+            <p className="mt-2 max-w-2xl text-[11px] leading-5 text-zinc-400">
+              Controle o que as pessoas podem fazer com os anúncios deste conjunto. As duas opções começam desligadas em todas as novas publicações.
+            </p>
+          </div>
+          <span className="rounded bg-[#10242a] px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-300">
+            Padrão: protegido
+          </span>
+        </div>
+        <div className="mt-4 divide-y divide-white/[.06] border-y border-white/[.06]">
+          <div className="flex items-center justify-between gap-5 py-4">
+            <div>
+              <b className="text-xs text-zinc-100">Permitir comentários</b>
+              <p className="mt-1 text-[10px] leading-4 text-zinc-500">
+                Quando desligado, o TikTok bloqueia comentários em todos os anúncios criados neste conjunto.
+              </p>
+            </div>
+            <Toggle value={allowComments} onChange={onAllowComments} />
+          </div>
+          <div className="flex items-center justify-between gap-5 py-4">
+            <div>
+              <b className="text-xs text-zinc-100">Permitir download do vídeo</b>
+              <p className="mt-1 text-[10px] leading-4 text-zinc-500">
+                Quando desligado, pessoas não poderão baixar o vídeo do anúncio pelo TikTok.
+              </p>
+            </div>
+            <Toggle value={allowVideoDownloads} onChange={onAllowVideoDownloads} />
+          </div>
+        </div>
+      </section>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <FlaggedSelect
           label="País (location)"
