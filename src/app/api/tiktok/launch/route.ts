@@ -3,6 +3,7 @@ import { randomInt } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  bindCatalogWebsitePixel,
   createAd,
   createAdgroup,
   createCampaign,
@@ -257,6 +258,7 @@ export async function POST(request: NextRequest) {
     const identities = body?.identities_by_advertiser ?? {};
     const existingCampaignNames = new Map<string, Set<string>>();
     const identityTypes = new Map<string, string>();
+    const pixelCodes = new Map<string, string>();
 
     const { data: businessCenter, error: businessCenterError } = await admin
       .from("tiktok_business_centers")
@@ -320,9 +322,33 @@ export async function POST(request: NextRequest) {
         throw new Error(`Pixel ou Identity ausente na conta ${advertiserId}. Nenhuma campanha foi ativada.`);
       }
       const assets = await loadAdvertiserAssets(token, advertiserId);
-      if (!assets.pixels.some((pixel) => pixel.id === pixelId)) {
+      const selectedPixel = assets.pixels.find((pixel) => pixel.id === pixelId);
+      if (!selectedPixel) {
         throw new Error(`O pixel selecionado não está disponível na conta ${advertiserId}.`);
       }
+      if (!selectedPixel.pixelCode) {
+        throw new Error(`O TikTok não retornou o código do pixel “${selectedPixel.name}”. Atualize os ativos da conta antes de publicar.`);
+      }
+      await log(
+        "info",
+        "preflight",
+        "started",
+        `Vinculando o pixel “${selectedPixel.name}” (${selectedPixel.pixelCode}) ao catálogo selecionado.`,
+      );
+      try {
+        await bindCatalogWebsitePixel(token, {
+          advertiserId,
+          businessCenterId,
+          catalogId,
+          pixelCode: selectedPixel.pixelCode,
+        });
+        await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” conectado ao catálogo.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (!/already|exist|bound|duplicat/i.test(message)) throw error;
+        await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” já estava conectado ao catálogo.`);
+      }
+      pixelCodes.set(advertiserId, selectedPixel.pixelCode);
       const selectedIdentity = assets.identities.find((identity) => identity.id === identityId);
       if (!selectedIdentity) {
         throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
@@ -344,7 +370,8 @@ export async function POST(request: NextRequest) {
     );
 
     for (const advertiserId of advertiserIds) {
-      const pixelId = pixels[advertiserId]!.trim();
+      const pixelCode = pixelCodes.get(advertiserId);
+      if (!pixelCode) throw new Error(`Código do pixel não encontrado para a conta ${advertiserId}.`);
       const identityId = identities[advertiserId]!.trim();
       const identityType = identityTypes.get(advertiserId);
 
@@ -410,7 +437,9 @@ export async function POST(request: NextRequest) {
             identity_id: identityId,
             ...(identityType ? { identity_type: identityType } : {}),
             ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-            pixel_id: pixelId,
+            // Use the Events Manager code, exactly as Catalog Manager/Rocket
+            // does, not the numeric asset-list identifier shown in the UI.
+            pixel_id: pixelCode,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
             // The selected pixel receives Purchase through Events API/server.
