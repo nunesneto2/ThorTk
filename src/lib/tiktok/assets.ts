@@ -284,20 +284,21 @@ export async function loadAdvertiserAssets(accessToken: string, advertiserId: st
   };
 }
 
-/**
- * Returns the conversion events actually received by a selected pixel.  The
- * Ads API uses a different enum from the Events API, so launch preflight uses
- * this read-only response to avoid creating a campaign before it knows which
- * optimization event TikTok will accept.
- */
-export async function loadPixelEventStats(accessToken: string, advertiserId: string, pixelId: string) {
-  const endDate = new Date();
-  const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60_000);
-  const date = (value: Date) => value.toISOString().slice(0, 10);
-  return request("/pixel/event/stats/", accessToken, {
+/** Registers the Ads API purchase conversion for an existing Pixel event. */
+export async function createWebsitePurchaseEvent(accessToken: string, advertiserId: string, pixelId: string) {
+  // The Events API emits the selected pixel's standard event as "Purchase".
+  // Adgroup creation, however, uses the website-conversion enum
+  // ON_WEB_ORDER. Register this mapping only after TikTok confirms it is
+  // missing, so normal launches never mutate measurement configuration.
+  return requestPost("/pixel/event/create/", accessToken, {
     advertiser_id: advertiserId,
-    pixel_ids: JSON.stringify([pixelId]),
-    date_range: JSON.stringify({ start_date: date(startDate), end_date: date(endDate) }),
+    pixel_id: pixelId,
+    pixel_events: [{
+      event_code: "Purchase",
+      event_name: "Purchase",
+      event_type: "ON_WEB_ORDER",
+      statistic_type: "EVERY_TIME",
+    }],
   });
 }
 
