@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 37942)
-Total output lines: 4337
-
 "use client";
 
 import {
@@ -1724,7 +1721,839 @@ function AccountsScreen({
                       <button
                         type="button"
                         onClick={() => onActivateAccount(item.id)}
-              …7942 tokens truncated…  target.current.x = Math.max(-8, Math.min(8, normalizedX * 8));
+                        className="min-w-0 text-left"
+                      >
+                        <span className="block truncate font-bold text-zinc-100">
+                          {item.name}
+                        </span>
+                        <small className="mt-1 block text-[10px] text-zinc-500">
+                          Configurar ativos desta conta
+                        </small>
+                      </button>
+                      <a
+                        href={advertiserUrl(item.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex w-fit items-center gap-1.5 truncate font-bold text-sky-300 hover:text-sky-100 hover:underline"
+                      >
+                        {item.id}
+                        <ExternalLink size={13} />
+                      </a>
+                      <span>
+                        <b
+                          className={
+                            "rounded border px-2 py-1 text-[10px] " +
+                            (active
+                              ? "border-emerald-400/20 bg-emerald-400/[.1] text-emerald-300"
+                              : suspended
+                                ? "border-red-400/20 bg-red-400/[.1] text-red-300"
+                                : "border-amber-400/20 bg-amber-400/[.1] text-amber-200")
+                          }
+                        >
+                          ● {active ? "Ativa" : accountStatusLabel(item)}
+                        </b>
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-10 text-center text-sm text-zinc-500">
+                  Nenhuma conta foi retornada com esse filtro.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1d222b] px-4 py-3 text-xs">
+          <b className="text-[#d8b56b]">
+            {selectedIds.length}{" "}
+            {selectedIds.length === 1
+              ? "CONTA SELECIONADA"
+              : "CONTAS SELECIONADAS"}
+          </b>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              disabled={!selectedIds.length}
+              onClick={() =>
+                window.open(
+                  advertiserUrl(selectedIds[0]),
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+              className="inline-flex items-center gap-1.5 font-bold text-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ExternalLink size={14} />
+              Abrir no TikTok
+            </button>
+            <button
+              type="button"
+              disabled={!selectedIds.length}
+              onClick={onClear}
+              className="font-bold text-zinc-200 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Cancelar seleção
+            </button>
+          </div>
+        </div>
+      </div>
+      <section className="rocket-card mt-4 overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-white/[.07] bg-[#151b23] px-4 py-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="section-label text-[#e3c985]">
+              Identity & Pixel por conta
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Os ativos são consultados no TikTok para cada conta marcada.
+              Escolha somente ativos autorizados.
+            </p>
+          </div>
+          <span className="rounded bg-[#142231] px-2.5 py-1 text-[10px] font-black text-sky-200">
+            {selectedAdvertisers.length} EM GESTÃO
+          </span>
+        </div>
+        {selectedAdvertisers.length ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-[850px]">
+              <div className="grid grid-cols-[minmax(230px,.8fr)_minmax(270px,1fr)_minmax(270px,1fr)] gap-4 border-b border-white/[.06] px-4 py-3 text-[10px] font-black uppercase tracking-[.1em] text-zinc-500">
+                <span>Conta</span>
+                <span className="flex items-center gap-2">
+                  <Image
+                    src="/thor-identity.png"
+                    alt=""
+                    width={22}
+                    height={22}
+                    className="rounded-full"
+                  />
+                  Identity
+                </span>
+                <span className="flex items-center gap-2">
+                  <Image
+                    src="/thor-pixel.png"
+                    alt=""
+                    width={22}
+                    height={22}
+                    className="rounded-full"
+                  />
+                  Pixel
+                </span>
+              </div>
+              {selectedAdvertisers.map((item) => {
+                const detail = assetsByAdvertiser[item.id];
+                return (
+                  <div
+                    key={item.id}
+                    className="grid grid-cols-[minmax(230px,.8fr)_minmax(270px,1fr)_minmax(270px,1fr)] items-center gap-4 border-b border-white/[.06] px-4 py-3"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onActivateAccount(item.id)}
+                      className="min-w-0 text-left"
+                    >
+                      <b className="block truncate text-sm text-zinc-100">
+                        {item.name}
+                      </b>
+                      <span className="mt-1 flex items-center gap-1 text-[10px] text-sky-300">
+                        {item.id}
+                        <ExternalLink size={11} />
+                      </span>
+                    </button>
+                    <AssetSelect
+                      label="Identity"
+                      values={detail?.identities ?? []}
+                      selected={identitiesByAdvertiser[item.id] || ""}
+                      loading={loading && !detail}
+                      onChange={(value) => onIdentity(item.id, value)}
+                      empty="Nenhuma identity retornada."
+                      compact
+                    />
+                    <AssetSelect
+                      label="Pixel"
+                      values={detail?.pixels ?? []}
+                      selected={pixelsByAdvertiser[item.id] || ""}
+                      loading={loading && !detail}
+                      onChange={(value) => onPixel(item.id, value)}
+                      empty="Nenhum pixel retornado."
+                      compact
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+            <div className="flex -space-x-2">
+              <Image
+                src="/thor-identity.png"
+                alt=""
+                width={45}
+                height={45}
+                className="rounded-full border-2 border-[#101419]"
+              />
+              <Image
+                src="/thor-pixel.png"
+                alt=""
+                width={45}
+                height={45}
+                className="rounded-full border-2 border-[#101419]"
+              />
+            </div>
+            <p className="text-sm font-bold text-zinc-300">
+              Selecione uma ou mais contas para configurar Identity e Pixel.
+            </p>
+            <p className="max-w-md text-xs leading-5 text-zinc-500">
+              A seleção em massa mantém os ativos organizados por conta e nunca
+              altera permissões no TikTok.
+            </p>
+          </div>
+        )}
+        <div className="grid gap-3 border-t border-white/[.07] bg-[#10151b] p-4 md:grid-cols-2">
+          <button
+            type="button"
+            disabled={!selectedAdvertisers.length}
+            onClick={onCreateIdentity}
+            className="flex items-center gap-3 rounded-lg border border-[#d8b56b]/35 bg-[#241f10] p-3 text-left transition hover:border-[#d8b56b] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Image
+              src="/thor-identity.png"
+              alt=""
+              width={42}
+              height={42}
+              className="rounded-full"
+            />
+            <span>
+              <b className="block text-sm text-zinc-100">Criar Identity</b>
+              <small className="mt-1 block text-xs text-zinc-400">
+                Defina uma identidade customizada para as contas selecionadas.
+              </small>
+            </span>
+            <ArrowRight size={17} className="ml-auto text-[#e3c985]" />
+          </button>
+          <button
+            type="button"
+            disabled={!selectedAdvertisers.length}
+            onClick={onBindPixel}
+            className="flex items-center gap-3 rounded-lg border border-sky-300/30 bg-[#101d29] p-3 text-left transition hover:border-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Image
+              src="/thor-pixel.png"
+              alt=""
+              width={42}
+              height={42}
+              className="rounded-full"
+            />
+            <span>
+              <b className="block text-sm text-zinc-100">Vincular Pixel</b>
+              <small className="mt-1 block text-xs text-zinc-400">
+                Associe um pixel autorizado às contas selecionadas.
+              </small>
+            </span>
+            <ArrowRight size={17} className="ml-auto text-sky-300" />
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+function AssetSelect({
+  label,
+  values,
+  selected,
+  loading,
+  onChange,
+  empty,
+  compact = false,
+}: {
+  label: string;
+  values: Choice[];
+  selected: string;
+  loading: boolean;
+  onChange: (v: string) => void;
+  empty: string;
+  compact?: boolean;
+}) {
+  return (
+    <label
+      className={
+        "block text-[10px] font-black uppercase tracking-[.1em] text-zinc-500 " +
+        (compact ? "text-[0px]" : "")
+      }
+    >
+      {label}
+      {loading ? (
+        <span className="mt-2 flex items-center gap-2 text-xs normal-case text-zinc-400">
+          <Loader2 className="animate-spin" size={14} />
+          Consultando TikTok…
+        </span>
+      ) : values.length ? (
+        <span className="relative mt-2 block">
+          <select
+            value={selected}
+            onChange={(event) => onChange(event.target.value)}
+            className="rocket-input appearance-none text-sm font-bold"
+          >
+            <option value="">Selecione</option>
+            {values.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} · {item.id}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500"
+            size={15}
+          />
+        </span>
+      ) : (
+        <span className="mt-2 block normal-case text-xs font-medium text-zinc-500">
+          {empty}
+        </span>
+      )}
+    </label>
+  );
+}
+
+function AssetCreationModal({
+  kind,
+  name,
+  prefix,
+  language,
+  imageFile,
+  imagePreview,
+  selectedCount,
+  accountIds,
+  submitting,
+  sameName,
+  names,
+  progress,
+  onName,
+  onPrefix,
+  onLanguage,
+  onSameName,
+  onRegenerateNames,
+  onImageFile,
+  onClose,
+  onSubmit,
+}: {
+  kind: "identity" | "pixel";
+  name: string;
+  prefix: string;
+  language: string;
+  imageFile: File | null;
+  imagePreview: string;
+  selectedCount: number;
+  accountIds: string[];
+  submitting: boolean;
+  sameName: boolean;
+  names: string[];
+  progress: AssetProgress | null;
+  onName: (value: string) => void;
+  onPrefix: (value: string) => void;
+  onLanguage: (value: string) => void;
+  onSameName: (value: boolean) => void;
+  onRegenerateNames: () => void;
+  onImageFile: (file: File | null) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const identity = kind === "identity";
+  const completed = Boolean(progress && progress.current === progress.total);
+  const languages = [
+    { value: "pt-BR", label: "🇧🇷 Português (Brasil)" },
+    { value: "es-MX", label: "🇲🇽 Español (México)" },
+    { value: "en-US", label: "🇺🇸 English (United States)" },
+    { value: "es-ES", label: "🇪🇸 Español (España)" },
+  ];
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={identity ? "Criar Identity" : "Criar Pixel"}
+      className="modal-layer fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/80 px-4 py-5 backdrop-blur-sm"
+    >
+      <section className="my-auto w-full max-w-[600px] overflow-hidden rounded-xl border border-white/[.12] bg-[#1a202b] shadow-[0_28px_90px_rgba(0,0,0,.7)]">
+        <header className="flex items-center gap-3 border-b border-white/[.09] px-6 py-4">
+          <Image
+            src={identity ? "/thor-identity.png" : "/thor-pixel.png"}
+            alt=""
+            width={34}
+            height={34}
+            className="rounded-full ring-1 ring-sky-300/30"
+          />
+          <div>
+            <h2 className="text-[20px] font-black tracking-[-.03em] text-zinc-100">
+              {identity ? "Criar Identity" : "Vincular Pixel"}
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-400">
+              {identity
+                ? "Configure sua identidade digital nas contas selecionadas."
+                : "Associe um pixel autorizado às contas selecionadas."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            aria-label="Fechar"
+            className="ml-auto grid h-8 w-8 place-items-center rounded-md text-zinc-400 transition hover:bg-white/[.08] hover:text-white disabled:opacity-40"
+          >
+            <X size={17} />
+          </button>
+        </header>
+        <div className="space-y-5 px-6 py-5">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+              Contas alvo{" "}
+              <span className="text-[#f1cd3a]">
+                {selectedCount} selecionada(s)
+              </span>
+            </p>
+            <div className="mt-2 grid max-h-24 gap-1.5 overflow-y-auto rounded-lg bg-[#11161f] p-2 sm:grid-cols-2">
+              {accountIds.map((id) => (
+                <span
+                  key={id}
+                  className="truncate rounded-md bg-[#0c1118] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300"
+                >
+                  <i className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#ffd31a]" />
+                  {id}
+                </span>
+              ))}
+            </div>
+          </div>
+          {identity ? (
+            <>
+              <div className="flex items-center gap-4 rounded-xl border border-white/[.1] bg-[#151b24] p-4">
+                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border border-sky-300/25 bg-[#0c131c]">
+                  {imagePreview ? (
+                    <Image
+                      src={imagePreview}
+                      unoptimized
+                      alt="Prévia da imagem da Identity"
+                      width={64}
+                      height={64}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageUp size={25} className="text-sky-300" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-zinc-100">
+                    Visual da Identity
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    Upload de foto. Recorte automático para 512×512.
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <label
+                      htmlFor="identity-image"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[#e5c65b] px-3 py-1.5 text-xs font-bold text-[#f4d45b] transition hover:bg-[#e5c65b]/10"
+                    >
+                      <ImageUp size={14} />
+                      {imageFile ? "Trocar imagem" : "Enviar nova"}
+                    </label>
+                    <input
+                      id="identity-image"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="sr-only"
+                      onChange={(event) =>
+                        onImageFile(event.target.files?.[0] ?? null)
+                      }
+                    />
+                    {imageFile && (
+                      <span className="max-w-[190px] truncate text-xs font-bold text-emerald-300">
+                        {imageFile.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#cda835]/55 bg-[#261f11]/65 px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={sameName}
+                  onChange={(event) => onSameName(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[#ffd31a]"
+                />
+                <span>
+                  <b className="block text-sm text-zinc-100">
+                    Usar o mesmo nome de perfil em todas as contas
+                  </b>
+                  <small className="mt-0.5 block text-[10px] leading-4 text-zinc-400">
+                    Desliga a randomização — todas as identities usam exatamente
+                    o Nome Base.
+                  </small>
+                </span>
+              </label>
+              <div className="grid gap-3 sm:grid-cols-[1.15fr_.8fr_1fr]">
+                <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                  Nome base
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={(event) => onName(event.target.value)}
+                    placeholder="Ex.: Maria Silva"
+                    className="rocket-input mt-1.5 h-10 text-sm font-semibold"
+                  />
+                </label>
+                <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                  Prefixo{" "}
+                  <span className="normal-case text-zinc-600">(opcional)</span>
+                  <input
+                    value={prefix}
+                    onChange={(event) => onPrefix(event.target.value)}
+                    placeholder="Ex.: Beauty"
+                    className="rocket-input mt-1.5 h-10 text-sm font-semibold"
+                  />
+                </label>
+                <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                  Idioma dos nomes
+                  <select
+                    value={language}
+                    onChange={(event) => onLanguage(event.target.value)}
+                    className="rocket-input mt-1.5 h-10 appearance-none text-xs font-semibold"
+                  >
+                    {languages.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {!sameName && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                      Preview de nomes (8 amostras)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onRegenerateNames}
+                      className="text-[10px] font-semibold text-sky-300 hover:text-sky-200"
+                    >
+                      Recarregar
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {names.slice(0, 8).map((item, index) => (
+                      <span
+                        key={item + index}
+                        className="rounded bg-[#0d1219] px-2 py-1.5 text-[10px] font-semibold text-zinc-300"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-4 rounded-xl border border-white/[.1] bg-[#151b24] p-4">
+                <Image
+                  src="/thor-pixel.png"
+                  alt=""
+                  width={54}
+                  height={54}
+                  className="rounded-full ring-1 ring-sky-300/30"
+                />
+                <div>
+                  <p className="text-sm font-extrabold text-zinc-100">
+                    Pixel de conversão
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    O pixel será criado individualmente em cada conta
+                    autorizada.
+                  </p>
+                </div>
+              </div>
+              <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                Nome do Pixel
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(event) => onName(event.target.value)}
+                  placeholder="Ex.: Pixel loja MX"
+                  className="rocket-input mt-1.5 h-10 text-sm font-semibold"
+                />
+              </label>
+            </>
+          )}
+          {progress && (
+            <div className="rounded-lg border border-sky-300/20 bg-sky-400/[.08] p-3">
+              <p className="flex items-center gap-2 text-xs font-bold text-sky-200">
+                {submitting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <CircleCheck size={14} className="text-emerald-300" />
+                )}
+                {submitting
+                  ? `Criando ${progress.current}/${progress.total} · 1 por vez`
+                  : "Processo concluído"}
+              </p>
+              <div className="mt-2 max-h-28 space-y-1 overflow-y-auto rounded bg-[#0c1117] p-2 font-mono text-[10px]">
+                {progress.entries.map((entry, index) => (
+                  <p
+                    key={entry.advertiserId + index}
+                    className={
+                      entry.tone === "success"
+                        ? "text-emerald-300"
+                        : "text-rose-300"
+                    }
+                  >
+                    {entry.tone === "success" ? "✓" : "×"} {entry.advertiserId}{" "}
+                    — {entry.name}
+                    {entry.tone === "success" ? " criada" : ""}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <footer className="flex items-center justify-end gap-3 border-t border-white/[.08] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="rounded-md bg-[#2a313d] px-5 py-2.5 text-sm font-semibold text-zinc-200 transition hover:bg-[#343d4a] disabled:opacity-40"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={
+              submitting ||
+              (!completed && (!name.trim() || (identity && !imageFile)))
+            }
+            className="rounded-md bg-[#ffd31a] px-5 py-2.5 text-sm font-extrabold text-[#17140b] transition hover:bg-[#ffdd45] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitting && (
+              <Loader2 size={15} className="mr-2 inline animate-spin" />
+            )}
+            {completed
+              ? "Fechar"
+              : identity
+                ? "Criar em Todas as Contas"
+                : "Criar e Vincular Pixel"}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function CatalogScreen({
+  catalogs,
+  selectedId,
+  mode,
+  loading,
+  onRefresh,
+  onSelect,
+  onMode,
+}: {
+  catalogs: Choice[];
+  selectedId: string;
+  mode: CatalogMode;
+  loading: boolean;
+  onRefresh: () => void;
+  onSelect: (id: string) => void;
+  onMode: (mode: CatalogMode) => void;
+}) {
+  return (
+    <div className="mx-auto max-w-[760px] pt-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="section-label">Catálogos disponíveis</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Escolha o catálogo que será usado na operação.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="rocket-dark-button min-h-9 px-3 text-[11px]"
+        >
+          <RefreshCw className={loading ? "animate-spin" : ""} size={14} />
+          Atualizar
+        </button>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {loading ? (
+          <div className="col-span-full py-10 text-center text-sm text-zinc-500">
+            <Loader2
+              className="mx-auto mb-3 animate-spin text-[#d8b56b]"
+              size={20}
+            />
+            Carregando catálogos…
+          </div>
+        ) : catalogs.length ? (
+          catalogs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              aria-pressed={item.id === selectedId}
+              className={`catalog-card catalog-card--compact text-left ${item.id === selectedId ? "catalog-selected" : ""}`}
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/[.06] text-[#d8b56b]">
+                <Database size={17} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <b className="block truncate text-sm">{item.name}</b>
+                <small className="mt-1 block truncate text-[10px] text-zinc-500">
+                  ID: {item.id} · {item.currency || "Moeda da conta"}
+                </small>
+              </span>
+              {item.id === selectedId && (
+                <CircleCheck size={17} className="text-sky-300" />
+              )}
+            </button>
+          ))
+        ) : (
+          <div className="col-span-full rounded-xl border border-dashed border-white/[.12] px-5 py-8 text-center text-sm text-zinc-500">
+            Nenhum catálogo disponível para a operação atual.
+          </div>
+        )}
+      </div>
+      <section className="mt-4 rounded-xl border border-white/[.08] bg-[#11161c]/80 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="section-label">Alcance do catálogo</p>
+            <p className="mt-1 text-[10px] text-zinc-500">
+              Defina quais produtos entram na campanha.
+            </p>
+          </div>
+          <span className="rounded bg-white/[.05] px-2 py-1 text-[10px] font-bold text-zinc-400">
+            {catalogs.length} catálogo(s)
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <SelectMode
+            icon={<Layers3 size={18} />}
+            title="Selecionar Sets"
+            text="Grupos específicos."
+            active={mode === "SETS"}
+            onClick={() => onMode("SETS")}
+          />
+          <SelectMode
+            icon={<Database size={18} />}
+            title="Todos os Produtos"
+            text="Todo o catálogo."
+            active={mode === "ALL"}
+            onClick={() => onMode("ALL")}
+          />
+        </div>
+      </section>
+      {mode === "SETS" && (
+        <div className="mt-3 rounded-lg border border-sky-300/20 bg-sky-300/[.05] px-4 py-3 text-xs text-sky-100">
+          A seleção de Product Sets será habilitada quando a API retornar os
+          sets deste catálogo.
+        </div>
+      )}
+    </div>
+  );
+}
+function SelectMode({
+  icon,
+  title,
+  text,
+  active = false,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex min-h-[82px] items-center gap-3 rounded-lg border px-4 py-3 text-left transition ${active ? "border-[#d8b56b] bg-[#251f0d]" : "border-white/[.07] bg-[#101417] hover:border-white/[.2]"}`}
+    >
+      <span className={active ? "text-[#e3c985]" : "text-zinc-400"}>
+        {icon}
+      </span>
+      <span>
+        <b className="block text-sm">{title}</b>
+        <small className="mt-1 block text-[10px] text-zinc-500">{text}</small>
+      </span>
+      {active && <CircleCheck className="ml-auto text-[#e3c985]" size={16} />}
+    </button>
+  );
+}
+
+type AsgardField = "campaign" | "group" | "ads" | "budget";
+function AsgardController({
+  activeField,
+  campaignValue,
+  groupValue,
+  adsValue,
+  budgetValue,
+  pulseKey,
+  onComplete,
+}: {
+  activeField: AsgardField | null;
+  campaignValue: number;
+  groupValue: number;
+  adsValue: number;
+  budgetValue: number;
+  pulseKey: number;
+  onComplete?: () => void;
+}) {
+  const controllerRef = useRef<HTMLDivElement>(null);
+  const animationFrame = useRef<number | null>(null);
+  const target = useRef({ x: 0, y: 0 });
+  const current = useRef({ x: 0, y: 0 });
+  const completeRef = useRef(false);
+  const isComplete =
+    campaignValue > 0 && groupValue > 0 && adsValue > 0 && budgetValue > 0;
+  const runes: { field: AsgardField; source: string; label: string }[] = [
+    { field: "campaign", source: "/rune-campaign.webp", label: "" },
+    { field: "group", source: "/rune-group.webp", label: "" },
+    { field: "ads", source: "/rune-ads.webp", label: "" },
+    { field: "budget", source: "/rune-budget.webp", label: "" },
+  ];
+  useEffect(() => {
+    const animate = () => {
+      const root = controllerRef.current;
+      if (root) {
+        current.current.x += (target.current.x - current.current.x) * 0.12;
+        current.current.y += (target.current.y - current.current.y) * 0.12;
+        root.style.setProperty("--core-x", `${current.current.x.toFixed(2)}px`);
+        root.style.setProperty("--core-y", `${current.current.y.toFixed(2)}px`);
+      }
+      animationFrame.current = requestAnimationFrame(animate);
+    };
+    animationFrame.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrame.current !== null)
+        cancelAnimationFrame(animationFrame.current);
+    };
+  }, []);
+  useEffect(() => {
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const resetTracking = () => {
+      target.current = { x: 0, y: 0 };
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!controllerRef.current) return;
+      const rect = controllerRef.current.getBoundingClientRect();
+      const normalizedX =
+        (event.clientX - (rect.left + rect.width / 2)) /
+        (window.innerWidth / 2);
+      const normalizedY =
+        (event.clientY - (rect.top + rect.height / 2)) /
+        (window.innerHeight / 2);
+      target.current.x = Math.max(-8, Math.min(8, normalizedX * 8));
       target.current.y = Math.max(-6, Math.min(6, normalizedY * 6));
     };
     window.addEventListener("pointermove", handlePointerMove, {
@@ -3506,3 +4335,4 @@ function LaunchConsole({
     </div>
   );
 }
+
