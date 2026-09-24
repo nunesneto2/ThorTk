@@ -228,6 +228,14 @@ export async function loadCatalogOverview(accessToken: string, businessCenterId:
   return { approved: count("approved"), rejected: count("rejected"), processing: count("processing") };
 }
 
+export async function loadCatalogAvailableCountries(accessToken: string, businessCenterId: string) {
+  const data = await request("/catalog/available_country/get/", accessToken, { bc_id: businessCenterId });
+  const values = data.region_codes;
+  return Array.isArray(values)
+    ? values.map((value) => readText(value).toUpperCase()).filter((value) => /^[A-Z]{2}$/.test(value))
+    : [];
+}
+
 export async function loadAdvertiserCampaigns(accessToken: string, advertiserId: string) {
   const pageSize = 100;
   const firstPage = await request("/campaign/get/", accessToken, {
