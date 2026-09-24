@@ -341,7 +341,10 @@ export async function POST(request: NextRequest) {
         const values = [event.name, event.eventType, event.eventCode]
           .filter((value): value is string => Boolean(value))
           .map((value) => value.replace(/[^a-z0-9]/gi, "").toUpperCase());
-        return values.includes("PURCHASE");
+        // In TikTok's v1.3 mapping, the data-connection event `Purchase`
+        // is submitted to adgroup/create as `SHOPPING`. /pixel/list may
+        // return either the source name or that creation enum in `events`.
+        return values.includes("PURCHASE") || event.optimizationEvent === "SHOPPING";
       });
       if (!purchaseEvent?.optimizationEvent) {
         const reported = selectedPixel.pixelEvents?.length
