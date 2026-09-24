@@ -304,3 +304,42 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .notice-toast:has(.text-red-100) .connection-status-card__icon { background: rgba(251,113,133,.14); color: #ffadb9; box-shadow: 0 0 0 6px rgba(251,113,133,.05); }
 @keyframes notice-toast-enter { from { opacity: 0; transform: translate3d(12px,-8px,0) scale(.98); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
 @media (max-width: 640px) { .notice-toast { top: 68px; right: 1rem; left: 1rem; width: auto; } }
+
+/* ThorTk authentication: Bifrost access gate. */
+.auth-shell { position: relative; min-height: 100svh; overflow: hidden; isolation: isolate; background: #03080d; color: #f2f7fb; }
+.auth-shell__scene { position: absolute; inset: 0; z-index: -2; background: url('/thortk-auth-bifrost.webp') center center / cover no-repeat; }
+.auth-shell__veil { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(2,7,12,.88) 0%, rgba(2,8,14,.64) 40%, rgba(2,7,12,.5) 100%), radial-gradient(circle at 29% 45%, rgba(40,144,223,.16), transparent 25%), linear-gradient(0deg, rgba(2,7,12,.55), transparent 45%); }
+.auth-shell__layout { position: relative; display: grid; min-height: 100svh; max-width: 1440px; margin: 0 auto; align-items: center; gap: clamp(2rem, 7vw, 8rem); padding: clamp(2rem, 5vw, 5rem) clamp(1.25rem, 6vw, 6.5rem); grid-template-columns: minmax(0,1fr) minmax(360px,460px); }
+.auth-hero { max-width: 640px; text-shadow: 0 3px 24px rgba(0,0,0,.55); }
+.auth-hero__eyebrow { display: inline-flex; align-items: center; gap: .6rem; color: #bfe9ff; font-size: .68rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+.auth-hero__protocol { margin: 2.1rem 0 .8rem; color: rgba(186,215,232,.67); font-size: .66rem; font-weight: 800; letter-spacing: .14em; }
+.auth-hero__brand { margin: 0; font-family: "Asgard", "Asgard Wide", "God of Thunder", var(--font-cinzel), "Cinzel", serif; font-size: clamp(4.2rem, 9vw, 7.5rem); font-weight: 700; letter-spacing: -.065em; line-height: .84; text-transform: uppercase; }
+.auth-hero__brand span { color: #63c4ff; text-shadow: 0 0 22px rgba(79,183,255,.36); }
+.auth-hero__copy { max-width: 530px; margin: 2rem 0 0; color: #e4edf3; font-size: clamp(1rem, 1.7vw, 1.25rem); line-height: 1.55; }
+.auth-hero__sequence { display: flex; max-width: 540px; margin-top: 3rem; align-items: center; gap: .8rem; color: #c3d2dc; font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.auth-hero__sequence span { display: grid; gap: .22rem; }
+.auth-hero__sequence b { color: #76caff; font-size: 1.25rem; line-height: 1; }
+.auth-hero__sequence i { height: 1px; flex: 1; background: linear-gradient(90deg, rgba(103,200,255,.7), rgba(103,200,255,.06)); }
+.auth-command-card { position: relative; border: 1px solid rgba(141,211,255,.25); border-radius: 1.15rem; background: linear-gradient(145deg, rgba(16,27,38,.92), rgba(6,13,21,.92)); padding: clamp(1.5rem, 4vw, 2.5rem); box-shadow: inset 0 1px rgba(255,255,255,.07), 0 28px 80px rgba(0,0,0,.48), 0 0 48px rgba(35,139,217,.1); backdrop-filter: blur(18px); }
+.auth-command-card::before { content: ""; position: absolute; top: 0; right: 18%; left: 18%; height: 1px; background: linear-gradient(90deg, transparent, rgba(127,208,255,.8), transparent); }
+.auth-command-card__back { display: inline-flex; align-items: center; gap: .45rem; color: #91a9ba; font-size: .72rem; font-weight: 800; transition: color .16s ease; }
+.auth-command-card__back:hover { color: #e6f6ff; }
+.auth-command-card__crest { display: grid; width: 50px; height: 50px; margin: 2.25rem 0 1rem; place-items: center; border: 1px solid rgba(111,202,255,.48); border-radius: 50%; background: radial-gradient(circle, rgba(54,183,255,.2), rgba(13,47,74,.38)); color: #a9e2ff; box-shadow: 0 0 22px rgba(54,183,255,.16), inset 0 1px rgba(255,255,255,.12); }
+.auth-command-card__eyebrow { margin: 0; color: #79caff; font-size: .64rem; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+.auth-command-card h2 { margin: .75rem 0 0; font-family: "Asgard", "Asgard Wide", "God of Thunder", var(--font-cinzel), "Cinzel", serif; color: #f1f7fb; font-size: clamp(1.7rem, 3vw, 2.15rem); line-height: 1.05; text-transform: uppercase; }
+.auth-command-card__copy { margin: .9rem 0 0; color: #aabac8; font-size: .82rem; line-height: 1.55; }
+.auth-command-card__form { margin-top: 1.5rem; }
+.auth-identity-field { display: flex; height: 52px; align-items: center; gap: .7rem; border: 1px solid rgba(145,210,255,.18); border-radius: .65rem; background: rgba(2,8,13,.72); padding: 0 1rem; color: #6c93ae; transition: border-color .16s ease, box-shadow .16s ease; }
+.auth-identity-field:focus-within { border-color: rgba(119,204,255,.78); box-shadow: 0 0 0 3px rgba(54,183,255,.13), inset 0 0 18px rgba(54,183,255,.05); }
+.auth-identity-field input { width: 100%; border: 0; outline: 0; background: transparent; color: #f3f8fb; font-family: inherit; font-size: .84rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.auth-identity-field input::placeholder { color: #607789; }
+.auth-submit { display: inline-flex; width: 100%; min-height: 52px; margin-top: .85rem; align-items: center; justify-content: center; gap: .6rem; border: 1px solid rgba(159,221,255,.36); border-radius: .65rem; background: linear-gradient(135deg, #8bd7ff, #2a85c4); color: #05131f; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; box-shadow: 0 10px 28px rgba(32,131,197,.22); transition: transform .16s ease, filter .16s ease, box-shadow .16s ease; }
+.auth-submit:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.09); box-shadow: 0 14px 32px rgba(32,131,197,.32); }
+.auth-submit:disabled { cursor: wait; opacity: .65; }
+.auth-error { margin: .9rem 0 0; border: 1px solid rgba(251,113,133,.32); border-radius: .6rem; background: rgba(109,28,41,.28); padding: .75rem .85rem; color: #ffc1ca; font-size: .74rem; line-height: 1.45; }
+.auth-session-status { display: flex; align-items: center; justify-content: center; gap: .55rem; margin-top: 1.5rem; border: 1px solid rgba(126,198,255,.1); border-radius: .6rem; background: rgba(7,17,25,.56); padding: .75rem; color: #8ea5b5; font-size: .63rem; font-weight: 800; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
+.auth-session-status span { width: 7px; height: 7px; border-radius: 50%; background: #55d6a4; box-shadow: 0 0 10px rgba(85,214,164,.65); }
+.auth-command-card__note { display: flex; gap: .55rem; margin: 1.35rem 0 0; border-top: 1px solid rgba(255,255,255,.08); padding-top: 1.2rem; color: #8499a8; font-size: .68rem; line-height: 1.55; }
+.auth-command-card__note svg { flex: 0 0 auto; color: #71c4f4; }
+@media (max-width: 880px) { .auth-shell__layout { grid-template-columns: minmax(0,460px); justify-content: center; } .auth-hero { display: none; } .auth-shell__veil { background: linear-gradient(0deg, rgba(2,7,12,.78), rgba(2,7,12,.55)), radial-gradient(circle at 50% 42%, rgba(40,144,223,.17), transparent 34%); } }
+@media (max-width: 480px) { .auth-shell__layout { padding: 1rem; } .auth-command-card { padding: 1.4rem; border-radius: .9rem; } .auth-command-card__crest { margin-top: 1.7rem; } }
