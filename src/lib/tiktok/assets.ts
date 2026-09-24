@@ -7,7 +7,17 @@ type TikTokEnvelope = {
   data?: Record<string, unknown>;
 };
 
-export type Choice = { id: string; name: string; currency?: string; status?: string; type?: string; selected?: boolean };
+export type Choice = {
+  id: string;
+  name: string;
+  currency?: string;
+  status?: string;
+  type?: string;
+  country?: string;
+  businessCenterId?: string;
+  adCreationEligible?: string;
+  selected?: boolean;
+};
 export type AssetOverview = { businessCenters: Choice[]; advertisers: Choice[]; warnings: string[] };
 export type AdvertiserAssets = { advertiser: Choice | null; pixels: Choice[]; identities: Choice[]; warnings: string[] };
 
@@ -84,10 +94,39 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
     const id = ids[kind].map((key) => readText(item[key])).find(Boolean);
     if (!id) return [];
     const name = names[kind].map((key) => readText(item[key])).find(Boolean) || id;
-    const currency = ["currency", "advertiser_currency", "catalog_currency"].map((key) => readText(item[key])).find(Boolean);
+    const catalogConfig = kind === "catalog" && item.catalog_conf && typeof item.catalog_conf === "object"
+      ? item.catalog_conf as Record<string, unknown>
+      : undefined;
+    const businessCenter = item.bc_info && typeof item.bc_info === "object"
+      ? item.bc_info as Record<string, unknown>
+      : undefined;
+    const currency = [
+      "currency",
+      "advertiser_currency",
+      "catalog_currency",
+    ].map((key) => readText(item[key])).find(Boolean)
+      || readText(catalogConfig?.currency);
     const status = ["status", "advertiser_status", "operation_status"].map((key) => readText(item[key])).find(Boolean);
     const type = kind === "identity" ? readText(item.identity_type) : undefined;
-    return [{ id, name, currency: currency || undefined, status: status || undefined, type: type || undefined }];
+    const country = kind === "catalog"
+      ? readText(catalogConfig?.region_code) || readText(catalogConfig?.country)
+      : undefined;
+    const businessCenterId = kind === "advertiser"
+      ? ["owner_bc_id", "bc_id", "business_center_id"].map((key) => readText(item[key])).find(Boolean)
+      : kind === "catalog"
+        ? ["bc_id", "business_center_id"].map((key) => readText(item[key])).find(Boolean) || readText(businessCenter?.bc_id)
+        : undefined;
+    const adCreationEligible = kind === "catalog" ? readText(item.ad_creation_eligible) : undefined;
+    return [{
+      id,
+      name,
+      currency: currency || undefined,
+      status: status || undefined,
+      type: type || undefined,
+      country: country || undefined,
+      businessCenterId: businessCenterId || undefined,
+      adCreationEligible: adCreationEligible || undefined,
+    }];
   });
 }
 
@@ -142,7 +181,7 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   // appear in "Podem subir".
   const advertiserInfo = authorizedAdvertisers.length ? await result(request("/advertiser/info/", accessToken, {
     advertiser_ids: JSON.stringify(authorizedAdvertisers.map((item) => item.id)),
-    fields: JSON.stringify(["advertiser_id", "name", "currency", "status"]),
+    fields: JSON.stringify(["advertiser_id", "name", "currency", "status", "owner_bc_id"]),
   }), "Status das contas") : { data: null, warning: null as string | null };
   const recordsById = new Map(normalize(dataItems(advertiserInfo.data ?? undefined), "advertiser").map((item) => [item.id, item]));
   const advertiserChoices = authorizedAdvertisers.map((item) => {
@@ -176,6 +215,17 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
 export async function loadCatalogs(accessToken: string, businessCenterId: string) {
   const data = await request("/catalog/get/", accessToken, { bc_id: businessCenterId, page: 1, page_size: 50 });
   return normalize(dataItems(data), "catalog");
+}
+
+export type CatalogOverview = { approved?: number; rejected?: number; processing?: number };
+
+export async function loadCatalogOverview(accessToken: string, businessCenterId: string, catalogId: string): Promise<CatalogOverview> {
+  const data = await request("/catalog/overview/", accessToken, { bc_id: businessCenterId, catalog_id: catalogId });
+  const count = (key: "approved" | "rejected" | "processing") => {
+    const value = Number(data[key]);
+    return Number.isFinite(value) ? value : undefined;
+  };
+  return { approved: count("approved"), rejected: count("rejected"), processing: count("processing") };
 }
 
 export async function loadAdvertiserCampaigns(accessToken: string, advertiserId: string) {
