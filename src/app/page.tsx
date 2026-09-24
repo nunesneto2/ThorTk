@@ -3102,6 +3102,13 @@ function StructureScreen({
     setActiveAsgardField(field);
     if (pulse) setAsgardPulse((value) => value + 1);
   };
+  const adjustCpaBid = (delta: number) => {
+    const next = Math.max(
+      0.01,
+      (Number(cpaBid.replace(",", ".")) || 0) + delta,
+    );
+    onCpaBid(String(Math.round(next * 100) / 100));
+  };
   return (
     <div className="mx-auto max-w-[820px] pt-4">
       <div className="asgard-controller-section">
@@ -3200,13 +3207,11 @@ function StructureScreen({
           />
         </div>
         {cpa && (
-          <div className="mt-4 grid gap-3 border-t border-sky-300/[.12] pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <label className="block">
-              <span className="section-label text-sky-200">
-                CPA alvo ({inputCurrency})
-              </span>
-              <span className="metric-input-shell mt-2 max-w-[280px]">
-                <span className="metric-prefix">{currencySymbol}</span>
+          <div className="mt-4 grid gap-4 border-t border-sky-300/[.12] pt-4 sm:grid-cols-[250px_minmax(0,1fr)] sm:items-center">
+            <label className="structure-metric structure-metric--amount min-h-[108px]">
+              <span>CPA alvo ({inputCurrency})</span>
+              <span className="metric-input-shell">
+                <b className="metric-prefix">{currencySymbol}</b>
                 <input
                   type="number"
                   min="0.01"
@@ -3217,9 +3222,25 @@ function StructureScreen({
                   placeholder="Ex.: 25,00"
                   aria-describedby="cpa-bid-help"
                 />
+                <span className="metric-stepper">
+                  <button
+                    type="button"
+                    aria-label="Aumentar CPA alvo"
+                    onClick={() => adjustCpaBid(1)}
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Diminuir CPA alvo"
+                    onClick={() => adjustCpaBid(-1)}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                </span>
               </span>
             </label>
-            <p id="cpa-bid-help" className="max-w-[290px] text-[10px] leading-4 text-zinc-500 sm:pb-1">
+            <p id="cpa-bid-help" className="max-w-[330px] text-[10px] leading-4 text-zinc-500">
               O TikTok buscará manter o custo médio por compra próximo deste valor. Sem um CPA válido, a publicação fica bloqueada.
             </p>
           </div>
