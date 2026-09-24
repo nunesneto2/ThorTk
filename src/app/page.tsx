@@ -1422,7 +1422,7 @@ function Journey({
       <div className="relative flex min-w-[980px] items-start justify-between px-4">
         <div className="journey-energy-rail" aria-hidden>
           {steps.slice(0, -1).map((_, index) => {
-            const state = index < step ? "charged" : index === step ? "active" : "idle";
+            const state = index < step - 1 ? "charged" : index === step - 1 ? "active" : "idle";
             return (
               <span key={index} className={`journey-energy-link journey-energy-link--${state}`}>
                 <svg viewBox="0 0 100 12" preserveAspectRatio="none" focusable="false">

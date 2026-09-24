@@ -117,7 +117,13 @@ select.thor-field option { background: #11181d; color: #f8fafc; }
 .journey-icon { display: grid; width: 56px; height: 56px; place-items: center; overflow: hidden; border: 1px solid rgba(216,181,107,.34); border-radius: 50%; background: #111820; color: #b7c5d6; box-shadow: 0 0 0 3px rgba(0,0,0,.22); transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
 .journey-icon img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .journey-icon:hover { border-color: rgba(216,181,107,.7); transform: translateY(-1px); }
-.journey-active { border-color: #7ec6ff; color: #d7ebff; box-shadow: 0 0 0 3px rgba(11,25,35,.92), 0 0 18px rgba(101,181,255,.32), inset 0 0 12px rgba(76,167,255,.12); }
+.journey-active { border-color: #7ec6ff; color: #d7ebff; box-shadow: 0 0 0 3px rgba(11,25,35,.92), 0 0 18px rgba(101,181,255,.32), inset 0 0 12px rgba(76,167,255,.12); animation: journey-active-receive 1.28s cubic-bezier(.28,.66,.3,1) infinite; }
+@keyframes journey-active-receive {
+  0%, 76% { border-color: #7ec6ff; box-shadow: 0 0 0 3px rgba(11,25,35,.92), 0 0 18px rgba(101,181,255,.32), inset 0 0 12px rgba(76,167,255,.12); filter: brightness(1); }
+  87% { border-color: #d9f5ff; box-shadow: 0 0 0 5px rgba(68,181,255,.16), 0 0 31px rgba(101,210,255,.72), inset 0 0 18px rgba(117,211,255,.32); filter: brightness(1.22); }
+  96% { border-color: #aee5ff; box-shadow: 0 0 0 4px rgba(68,181,255,.1), 0 0 24px rgba(101,210,255,.46), inset 0 0 15px rgba(117,211,255,.24); filter: brightness(1.1); }
+  100% { border-color: #7ec6ff; box-shadow: 0 0 0 3px rgba(11,25,35,.92), 0 0 18px rgba(101,181,255,.32), inset 0 0 12px rgba(76,167,255,.12); filter: brightness(1); }
+}
 .journey-energy-rail { position: absolute; z-index: 1; top: 22px; right: 7%; left: 7%; display: grid; height: 14px; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; pointer-events: none; }
 .journey-energy-link { display: block; height: 14px; color: rgba(101,145,176,.32); filter: drop-shadow(0 0 2px rgba(0,0,0,.55)); }
 .journey-energy-link svg { display: block; width: 100%; height: 100%; overflow: visible; }
@@ -289,3 +295,5 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 @media (min-width: 1280px) { .rocket-section { padding: var(--thor-card-padding); } }
 @media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller-section { min-height: 164px; margin-bottom: 16px; } .asgard-controller { width: clamp(170px, 56vw, 220px); } .structure-metric { min-height: 100px; padding: .7rem; } .structure-metric > span:first-child { margin-bottom: .45rem; font-size: 9px; } .structure-metric input { font-size: 1.2rem; } .structure-metric--amount input.metric-value--medium { font-size: 1rem; } .structure-metric--amount input.metric-value--long { font-size: .82rem; } .metric-input-shell { height: 44px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } .console-modal { max-height: calc(100dvh - 1rem); border-radius: .65rem; } .console-modal__body { padding: .85rem; } .console-log { height: clamp(124px, 19dvh, 170px); } .console-completion-card { grid-template-columns: 1fr; } .console-sound-replay { justify-self: start; } }
 @media (prefers-reduced-motion: reduce) { .thor-crest, .console-orb, .asgard-controller *, .asgard-controller--complete .asgard-base { animation: none !important; transition: none !important; } .asgard-core { transform: translate(-50%, -50%) !important; will-change: auto; } }
+
+@media (prefers-reduced-motion: reduce) { .journey-active, .journey-energy-link__pulse { animation: none !important; } .journey-energy-link__pulse { opacity: 0 !important; } }
