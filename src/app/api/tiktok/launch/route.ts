@@ -541,7 +541,14 @@ export async function POST(request: NextRequest) {
                 identity_id: identityId,
                 identity_type: identityType ?? "CUSTOMIZED_USER",
                 ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-                dynamic_format: "DYNAMIC_PRODUCT_ADS",
+                // Catalog Video is the Rocket "Vídeo: catálogo" flow. The
+                // catalog supplies the product video/template; no uploaded
+                // generic video is required for this format.
+                product_specific_type: "ALL",
+                dynamic_format: "UNSET",
+                ad_format: "SINGLE_VIDEO",
+                vertical_video_strategy: "CATALOG_VIDEOS",
+                dynamic_destination: "UNSET",
                 operation_status: "DISABLE",
               }],
             });
