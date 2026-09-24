@@ -1420,10 +1420,19 @@ function Journey({
       className="relative -mx-2 overflow-x-auto pb-3 pt-4 [scrollbar-width:none]"
     >
       <div className="relative flex min-w-[980px] items-start justify-between px-4">
-        <div
-          aria-hidden
-          className="absolute left-[7%] right-[7%] top-8 border-t border-dashed border-[#4c5459]/55"
-        />
+        <div className="journey-energy-rail" aria-hidden>
+          {steps.slice(0, -1).map((_, index) => {
+            const state = index < step ? "charged" : index === step ? "active" : "idle";
+            return (
+              <span key={index} className={`journey-energy-link journey-energy-link--${state}`}>
+                <svg viewBox="0 0 100 12" preserveAspectRatio="none" focusable="false">
+                  <path className="journey-energy-link__trace" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
+                  <path className="journey-energy-link__bolt" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
+                </svg>
+              </span>
+            );
+          })}
+        </div>
         {steps.map((label, index) => {
           const active = index === step;
           return (

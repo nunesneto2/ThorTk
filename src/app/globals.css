@@ -118,6 +118,18 @@ select.thor-field option { background: #11181d; color: #f8fafc; }
 .journey-icon img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .journey-icon:hover { border-color: rgba(216,181,107,.7); transform: translateY(-1px); }
 .journey-active { border-color: #7ec6ff; color: #d7ebff; box-shadow: 0 0 0 3px rgba(11,25,35,.92), 0 0 18px rgba(101,181,255,.32), inset 0 0 12px rgba(76,167,255,.12); }
+.journey-energy-rail { position: absolute; z-index: 1; top: 22px; right: 7%; left: 7%; display: grid; height: 14px; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; pointer-events: none; }
+.journey-energy-link { display: block; height: 14px; color: rgba(101,145,176,.32); filter: drop-shadow(0 0 2px rgba(0,0,0,.55)); }
+.journey-energy-link svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.journey-energy-link path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.journey-energy-link__trace { stroke: currentColor; stroke-width: 1px; opacity: .58; }
+.journey-energy-link__bolt { stroke: transparent; stroke-width: 1.35px; }
+.journey-energy-link--charged { color: rgba(69,157,226,.72); filter: drop-shadow(0 0 4px rgba(54,183,255,.22)); }
+.journey-energy-link--charged .journey-energy-link__bolt { stroke: rgba(101,197,255,.72); opacity: .7; stroke-dasharray: 2 5; }
+.journey-energy-link--active { color: rgba(74,167,234,.9); filter: drop-shadow(0 0 6px rgba(54,183,255,.4)); }
+.journey-energy-link--active .journey-energy-link__trace { opacity: .88; }
+.journey-energy-link--active .journey-energy-link__bolt { stroke: #c9efff; stroke-dasharray: 3 7; animation: journey-lightning-flow 900ms linear infinite; }
+@keyframes journey-lightning-flow { to { stroke-dashoffset: -20; } }
 .rocket-card, .rocket-section { border: 1px solid var(--thor-line); border-radius: var(--thor-radius-md); background: color-mix(in srgb, var(--thor-surface) 94%, transparent); box-shadow: inset 0 1px rgba(255,255,255,.02); }
 .rocket-section { padding: .85rem .95rem; }
 .rocket-input { width: 100%; height: var(--thor-control-height); border: 1px solid rgba(255,255,255,.08); border-radius: var(--thor-radius-sm); background: var(--thor-input); padding: .65rem .8rem; color: #f7f7f7; outline: none; transition: border-color .16s, box-shadow .16s; }
