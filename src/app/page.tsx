@@ -24,6 +24,8 @@ import {
   Timer,
   Trash2,
   Play,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -4179,38 +4181,89 @@ function LaunchConsole({
     timestamp: string;
     stage: LaunchExecution["logs"][number]["stage"];
     status: LaunchExecution["logs"][number]["status"];
+    entityId?: string;
   };
   const [filter, setFilter] = useState<"all" | LogTone>("all");
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const announcedExecution = useRef<string | null>(null);
+  const logViewport = useRef<HTMLDivElement | null>(null);
   const logs = useMemo<LogEntry[]>(() => {
     if (execution) {
       return execution.logs.map((entry, index) => ({
         id: `${entry.timestamp}-${entry.stage}-${entry.entityId ?? "event"}-${index}`,
         tone: entry.level === "error" ? "error" : entry.level === "success" ? "success" : entry.status === "started" ? "queue" : "info",
-        message: entry.entityId ? `${entry.message} [${entry.entityId}]` : entry.message,
+        message: entry.message,
         timestamp: entry.timestamp,
         stage: entry.stage,
         status: entry.status,
+        entityId: entry.entityId,
       }));
     }
     return [];
   }, [execution]);
   const visibleLogs = logs.filter((entry) => {
     const matchesFilter = filter === "all" || entry.tone === filter;
-    return matchesFilter && entry.message.toLowerCase().includes(query.trim().toLowerCase());
+    return matchesFilter && `${entry.message} ${entry.entityId ?? ""}`.toLowerCase().includes(query.trim().toLowerCase());
   });
   const countFor = (tone: LogTone) => logs.filter((entry) => entry.tone === tone).length;
+  const stageLabel: Record<LogEntry["stage"], string> = {
+    preflight: "Conferência",
+    campaign: "Campanha",
+    adgroup: "Conjunto",
+    ad: "Anúncio",
+    activation: "Ativação",
+  };
+  const formatLog = (entry: LogEntry) =>
+    `[${dateLabel(entry.timestamp)}] ${stageLabel[entry.stage]} · ${entry.message}${entry.entityId ? ` · ID TikTok: ${entry.entityId}` : ""}`;
+  const playSuccessSound = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const browserWindow = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+    const AudioContextClass = browserWindow.AudioContext || browserWindow.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const now = context.currentTime;
+    [523.25, 659.25, 783.99].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const start = now + index * 0.1;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.075, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.2);
+    });
+    window.setTimeout(() => void context.close(), 700);
+  }, []);
+  useEffect(() => {
+    if (submitting) {
+      announcedExecution.current = null;
+      return;
+    }
+    if (execution?.status === "completed" && soundEnabled && announcedExecution.current !== execution.start_time) {
+      announcedExecution.current = execution.start_time ?? "completed";
+      playSuccessSound();
+    }
+  }, [execution?.start_time, execution?.status, playSuccessSound, soundEnabled, submitting]);
+  useEffect(() => {
+    if (submitting && logViewport.current) {
+      logViewport.current.scrollTop = logViewport.current.scrollHeight;
+    }
+  }, [logs.length, submitting]);
   const copyLogs = async () => {
     await navigator.clipboard?.writeText(
-      logs.map((entry) => `[${dateLabel(entry.timestamp)}] ${entry.message}`).join("\n"),
+      logs.map(formatLog).join("\n"),
     );
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   };
   const exportLogs = () => {
     const file = new Blob(
-      [logs.map((entry) => `[${dateLabel(entry.timestamp)}] ${entry.message}`).join("\n")],
+      [logs.map(formatLog).join("\n")],
       { type: "text/plain;charset=utf-8" },
     );
     const url = URL.createObjectURL(file);
@@ -4275,8 +4328,36 @@ function LaunchConsole({
             <div className="flex items-center gap-3 font-bold text-sky-300">
               <button type="button" onClick={() => void copyLogs()}>{copied ? "Copiado" : "Copiar"}</button>
               <button type="button" onClick={exportLogs}>Exportar</button>
+              <button
+                type="button"
+                onClick={() => setSoundEnabled((enabled) => !enabled)}
+                title={soundEnabled ? "Desativar som de confirmação" : "Ativar som de confirmação"}
+                className="inline-flex items-center gap-1"
+              >
+                {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                Som
+              </button>
             </div>
           </div>
+          {execution?.status === "completed" && (
+            <section className="console-completion-card mt-4" aria-live="polite">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="console-completion-icon"><CircleCheck size={22} /></span>
+                <div>
+                  <p className="text-sm font-black text-emerald-100">Tudo publicado e ativado</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-emerald-100/65">O TikTok confirmou a campanha completa. A entrega começa conforme o agendamento definido.</p>
+                </div>
+              </div>
+              <button type="button" onClick={playSuccessSound} className="console-sound-replay" title="Ouvir confirmação novamente">
+                <Volume2 size={15} /> Ouvir
+              </button>
+              <div className="console-completion-metrics">
+                <span><b>{execution.created?.campaigns ?? 0}</b> campanha{execution.created?.campaigns === 1 ? "" : "s"}</span>
+                <span><b>{execution.created?.adgroups ?? 0}</b> conjunto{execution.created?.adgroups === 1 ? "" : "s"}</span>
+                <span><b>{execution.created?.ads ?? 0}</b> anúncio{execution.created?.ads === 1 ? "" : "s"}</span>
+              </div>
+            </section>
+          )}
           <label className="relative mt-4 block">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600"
@@ -4289,7 +4370,7 @@ function LaunchConsole({
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
-          <div className="console-log mt-3 h-[238px] space-y-2 overflow-y-auto pr-1 font-mono text-[11px] leading-5">
+          <div ref={logViewport} className="console-log mt-3 h-[238px] space-y-2 overflow-y-auto pr-1 font-mono text-[11px] leading-5">
             {visibleLogs.map((entry) => (
               <p
                 key={entry.id}
@@ -4307,8 +4388,9 @@ function LaunchConsole({
                   [{new Date(entry.timestamp).toLocaleTimeString("pt-BR", { hour12: false })}]
                 </span>
                 <b className="mr-2">{entry.status === "started" ? "›" : entry.status === "failed" ? "×" : "✓"}</b>
-                <span className="mr-2 opacity-60">{entry.stage.toUpperCase()}</span>
+                <span className="mr-2 opacity-60" title={entry.stage}>{stageLabel[entry.stage].toUpperCase()}</span>
                 {entry.message}
+                {entry.entityId && <span className="console-log-id">ID: {entry.entityId}</span>}
               </p>
             ))}
             {!visibleLogs.length && <p className="py-10 text-center text-zinc-500">{submitting ? "Aguardando o primeiro retorno do TikTok…" : "Nenhum evento de execução."}</p>}
