@@ -460,6 +460,10 @@ export async function POST(request: NextRequest) {
             // PRODUCT_SALES is the campaign objective. The ad group itself
             // must declare the website promotion surface for catalog traffic.
             promotion_type: "WEBSITE",
+            // Catalog ads must open the product page from the catalog. Without
+            // this, Ads Manager renders Website type as unselected even though
+            // the catalog creative was created successfully.
+            promotion_website_type: "PRODUCT_LINK",
             // PRODUCT_SALES catalog delivery is a Video Shopping Ad. TikTok
             // requires both fields below even when no remarketing audience is
             // selected; omitting them produces only the generic parameter error.
