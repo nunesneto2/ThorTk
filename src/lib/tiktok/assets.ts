@@ -12,6 +12,8 @@ export type Choice = {
   name: string;
   /** TikTok's Events Manager code (for example, D8D5…). */
   pixelCode?: string;
+  /** Events returned by /pixel/list for this exact pixel/account pair. */
+  pixelEvents?: PixelEvent[];
   currency?: string;
   status?: string;
   type?: string;
@@ -19,6 +21,12 @@ export type Choice = {
   businessCenterId?: string;
   adCreationEligible?: string;
   selected?: boolean;
+};
+export type PixelEvent = {
+  name: string;
+  eventType?: string;
+  optimizationEvent?: string;
+  eventCode?: string;
 };
 export type AssetOverview = { businessCenters: Choice[]; advertisers: Choice[]; warnings: string[] };
 export type AdvertiserAssets = { advertiser: Choice | null; pixels: Choice[]; identities: Choice[]; warnings: string[] };
@@ -32,6 +40,25 @@ class TikTokApiError extends Error {
 
 function readText(value: unknown) {
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function pixelEvents(item: Record<string, unknown>): PixelEvent[] {
+  if (!Array.isArray(item.events)) return [];
+  return item.events.flatMap((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const event = value as Record<string, unknown>;
+    const name = readText(event.name) || readText(event.event_type) || readText(event.event_code);
+    if (!name) return [];
+    const eventType = readText(event.event_type);
+    const optimizationEvent = readText(event.optimization_event);
+    const eventCode = readText(event.event_code);
+    return [{
+      name,
+      eventType: eventType || undefined,
+      optimizationEvent: optimizationEvent || undefined,
+      eventCode: eventCode || undefined,
+    }];
+  });
 }
 
 function dataItems(data: Record<string, unknown> | undefined): Record<string, unknown>[] {
@@ -113,6 +140,7 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
     const pixelCode = kind === "pixel"
       ? ["pixel_code", "code"].map((key) => readText(item[key])).find(Boolean)
       : undefined;
+    const events = kind === "pixel" ? pixelEvents(item) : undefined;
     const country = kind === "catalog"
       ? readText(catalogConfig?.region_code) || readText(catalogConfig?.country)
       : undefined;
@@ -129,6 +157,7 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
       status: status || undefined,
       type: type || undefined,
       pixelCode: pixelCode || undefined,
+      pixelEvents: events?.length ? events : undefined,
       country: country || undefined,
       businessCenterId: businessCenterId || undefined,
       adCreationEligible: adCreationEligible || undefined,
