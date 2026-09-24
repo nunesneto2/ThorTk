@@ -253,6 +253,7 @@ export default function Home() {
   const [language, setLanguage] = useState("pt");
   const [aigc, setAigc] = useState(false);
   const [cpa, setCpa] = useState(false);
+  const [cpaBid, setCpaBid] = useState("");
   const [clickWindow, setClickWindow] = useState("7-day click");
   const [viewWindow, setViewWindow] = useState("1-day view");
   const [counting, setCounting] = useState("Every");
@@ -427,6 +428,14 @@ export default function Home() {
         : Number(rate.replace(",", ".")) || 0;
     return value * fx;
   }, [accountCurrency, amount, inputCurrency, rate]);
+  const cpaBidAmount = useMemo(() => {
+    const value = Number(cpaBid.replace(",", ".")) || 0;
+    const fx =
+      inputCurrency === accountCurrency
+        ? 1
+        : Number(rate.replace(",", ".")) || 0;
+    return value * fx;
+  }, [accountCurrency, cpaBid, inputCurrency, rate]);
   const ready = Boolean(
     bcId &&
       selectedLaunchAdvertisers.length &&
@@ -435,6 +444,7 @@ export default function Home() {
       selectedAccountsHaveAssets &&
       campaignName.trim() &&
       budget > 0 &&
+      (!cpa || cpaBidAmount > 0) &&
       (proxy !== "DEDICATED" || proxyAddress.trim()),
   );
   const startPublication = useCallback(async () => {
@@ -458,6 +468,8 @@ export default function Home() {
           catalog_id: catalogId,
           campaign_name: campaignName,
           budget_per_adgroup: budget,
+          bid_type: cpa ? "BID_TYPE_COST_CAP" : "BID_TYPE_NO_BID",
+          ...(cpa ? { bid_price: cpaBidAmount } : {}),
           campaigns: Math.max(1, Number(campaigns) || 1),
           adgroups_per_campaign: Math.max(1, Number(groups) || 1),
           ads_per_adgroup: Math.max(1, Number(ads) || 1),
@@ -575,7 +587,7 @@ export default function Home() {
     } finally {
       setLaunchSubmitting(false);
     }
-  }, [adText, ads, ages, allowComments, allowVideoDownloads, bcId, budget, campaignName, campaigns, catalogId, clickWindow, counting, country, cta, groups, identityByAdvertiser, language, launchDelay, launchSubmitting, loadApiCampaigns, operatingSystem, pixelByAdvertiser, ready, selectedAdvertiserIds, viewWindow]);
+  }, [adText, ads, ages, allowComments, allowVideoDownloads, bcId, budget, campaignName, campaigns, catalogId, clickWindow, counting, country, cpa, cpaBidAmount, cta, groups, identityByAdvertiser, language, launchDelay, launchSubmitting, loadApiCampaigns, operatingSystem, pixelByAdvertiser, ready, selectedAdvertiserIds, viewWindow]);
   const warnings = overview.warnings.concat(details.warnings);
   const filteredAdvertisers = overview.advertisers
     .filter((item) =>
@@ -844,6 +856,7 @@ export default function Home() {
     setAddon("NONE");
     setAigc(false);
     setCpa(false);
+    setCpaBid("");
     setAges(["18–24", "25–34", "35–44", "45–54", "55+"]);
     setOperatingSystem("ALL");
     setNotice({
@@ -1105,6 +1118,8 @@ export default function Home() {
               onAigc={setAigc}
               cpa={cpa}
               onCpa={setCpa}
+              cpaBid={cpaBid}
+              onCpaBid={setCpaBid}
               clickWindow={clickWindow}
               onClickWindow={setClickWindow}
               viewWindow={viewWindow}
@@ -2762,6 +2777,8 @@ function StructureScreen({
   onAigc,
   cpa,
   onCpa,
+  cpaBid,
+  onCpaBid,
   clickWindow,
   onClickWindow,
   viewWindow,
@@ -2806,6 +2823,8 @@ function StructureScreen({
   onAigc: (value: boolean) => void;
   cpa: boolean;
   onCpa: (value: boolean) => void;
+  cpaBid: string;
+  onCpaBid: (value: string) => void;
   clickWindow: string;
   onClickWindow: (value: string) => void;
   viewWindow: string;
@@ -3167,13 +3186,44 @@ function StructureScreen({
       <section className="rocket-section mt-3">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="section-label">Lance (CPA)</p>
+            <p className="section-label">Lance CPA (Cost Cap)</p>
             <p className="mt-2 text-[10px] text-zinc-500">
-              Base no custo por aquisição desejado.
+              Define o custo médio máximo desejado por aquisição.
             </p>
           </div>
-          <Toggle value={cpa} onChange={onCpa} />
+          <Toggle
+            value={cpa}
+            onChange={(value) => {
+              onCpa(value);
+              if (!value) setAcceleratedSpend(false);
+            }}
+          />
         </div>
+        {cpa && (
+          <div className="mt-4 grid gap-3 border-t border-sky-300/[.12] pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label className="block">
+              <span className="section-label text-sky-200">
+                CPA alvo ({inputCurrency})
+              </span>
+              <span className="metric-input-shell mt-2 max-w-[280px]">
+                <span className="metric-prefix">{currencySymbol}</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={cpaBid}
+                  onChange={(event) => onCpaBid(event.target.value)}
+                  placeholder="Ex.: 25,00"
+                  aria-describedby="cpa-bid-help"
+                />
+              </span>
+            </label>
+            <p id="cpa-bid-help" className="max-w-[290px] text-[10px] leading-4 text-zinc-500 sm:pb-1">
+              O TikTok buscará manter o custo médio por compra próximo deste valor. Sem um CPA válido, a publicação fica bloqueada.
+            </p>
+          </div>
+        )}
         <div className="mt-5 border-t border-white/[.06] pt-4">
           <div className="flex items-center justify-between gap-4">
             <div>
