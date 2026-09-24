@@ -4447,13 +4447,23 @@ function LaunchConsole({
     rumble.buffer = buffer;
     const lowPass = context.createBiquadFilter();
     lowPass.type = "lowpass";
-    lowPass.frequency.setValueAtTime(310, now);
-    lowPass.frequency.exponentialRampToValueAtTime(105, now + duration);
+    lowPass.frequency.setValueAtTime(520, now);
+    lowPass.frequency.exponentialRampToValueAtTime(130, now + duration);
     const rumbleGain = context.createGain();
     rumbleGain.gain.setValueAtTime(0.0001, now);
-    rumbleGain.gain.exponentialRampToValueAtTime(0.052, now + 0.035);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.096, now + 0.035);
     rumbleGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     rumble.connect(lowPass).connect(rumbleGain).connect(context.destination);
+
+    const crack = context.createBiquadFilter();
+    crack.type = "bandpass";
+    crack.frequency.setValueAtTime(1_650, now);
+    crack.Q.value = 0.75;
+    const crackGain = context.createGain();
+    crackGain.gain.setValueAtTime(0.0001, now);
+    crackGain.gain.exponentialRampToValueAtTime(0.052, now + 0.009);
+    crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    rumble.connect(crack).connect(crackGain).connect(context.destination);
 
     const strike = context.createOscillator();
     const strikeGain = context.createGain();
@@ -4461,7 +4471,7 @@ function LaunchConsole({
     strike.frequency.setValueAtTime(82, now);
     strike.frequency.exponentialRampToValueAtTime(47, now + 0.38);
     strikeGain.gain.setValueAtTime(0.0001, now);
-    strikeGain.gain.exponentialRampToValueAtTime(0.036, now + 0.018);
+    strikeGain.gain.exponentialRampToValueAtTime(0.066, now + 0.018);
     strikeGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.44);
     strike.connect(strikeGain).connect(context.destination);
 
