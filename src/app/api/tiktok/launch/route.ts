@@ -413,10 +413,9 @@ export async function POST(request: NextRequest) {
             pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
-            // Keep conversion bidding automatic. A Pixel can expose its active
-            // Purchase event under a different internal ID than the legacy
-            // ON_WEB_ORDER enum; forcing that enum rejects otherwise valid
-            // Pixels. TikTok resolves the eligible conversion event itself.
+            // The Events Manager exposes the selected pixel's active event
+            // with this exact, case-sensitive code: "Purchase".
+            optimization_event: "Purchase",
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
