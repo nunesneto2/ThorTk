@@ -262,6 +262,7 @@ export async function POST(request: NextRequest) {
     // source bind endpoint above is the only catalog endpoint that takes its
     // Events Manager pixel_code.
     const pixelIds = new Map<string, string>();
+    const pixelOptimizationEvents = new Map<string, string>();
 
     const { data: businessCenter, error: businessCenterError } = await admin
       .from("tiktok_business_centers")
@@ -332,6 +333,28 @@ export async function POST(request: NextRequest) {
       if (!selectedPixel.pixelCode) {
         throw new Error(`O TikTok não retornou o código do pixel “${selectedPixel.name}”. Atualize os ativos da conta antes de publicar.`);
       }
+      // The display label in Events Manager ("Purchase") is not the value
+      // accepted by adgroup/create. TikTok returns the account-specific
+      // creation enum alongside the pixel's measured events. Do not infer or
+      // create an event: use the value that this exact account/pixel returns.
+      const purchaseEvent = selectedPixel.pixelEvents?.find((event) => {
+        const values = [event.name, event.eventType, event.eventCode]
+          .filter((value): value is string => Boolean(value))
+          .map((value) => value.replace(/[^a-z0-9]/gi, "").toUpperCase());
+        return values.includes("PURCHASE");
+      });
+      if (!purchaseEvent?.optimizationEvent) {
+        const reported = selectedPixel.pixelEvents?.length
+          ? selectedPixel.pixelEvents.map((event) => `${event.name}${event.optimizationEvent ? ` → ${event.optimizationEvent}` : ""}`).join(", ")
+          : "nenhum evento retornado";
+        throw new Error(`O TikTok não expôs um Purchase otimável para o pixel “${selectedPixel.name}” nesta conta (${reported}). A publicação foi interrompida antes de criar campanha; não será criado ou alterado nenhum evento.`);
+      }
+      await log(
+        "success",
+        "preflight",
+        "succeeded",
+        `Pixel “${selectedPixel.name}”: ID ${selectedPixel.id}, código ${selectedPixel.pixelCode}; Purchase confirmado pelo TikTok como ${purchaseEvent.optimizationEvent}.`,
+      );
       await log(
         "info",
         "preflight",
@@ -352,6 +375,7 @@ export async function POST(request: NextRequest) {
         await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” já estava conectado ao catálogo.`);
       }
       pixelIds.set(advertiserId, selectedPixel.id);
+      pixelOptimizationEvents.set(advertiserId, purchaseEvent.optimizationEvent);
       const selectedIdentity = assets.identities.find((identity) => identity.id === identityId);
       if (!selectedIdentity) {
         throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
@@ -375,6 +399,8 @@ export async function POST(request: NextRequest) {
     for (const advertiserId of advertiserIds) {
       const pixelId = pixelIds.get(advertiserId);
       if (!pixelId) throw new Error(`ID do pixel não encontrado para a conta ${advertiserId}.`);
+      const optimizationEvent = pixelOptimizationEvents.get(advertiserId);
+      if (!optimizationEvent) throw new Error(`Evento de otimização do pixel não encontrado para a conta ${advertiserId}.`);
       const identityId = identities[advertiserId]!.trim();
       const identityType = identityTypes.get(advertiserId);
 
@@ -445,9 +471,10 @@ export async function POST(request: NextRequest) {
             pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
-            // Ads Manager labels this as “Purchase”. In this v1.3 endpoint
-            // the corresponding website purchase enum is ON_WEB_ORDER.
-            optimization_event: "ON_WEB_ORDER",
+            // Read from pixels[].events[].optimization_event in the TikTok
+            // response for this selected pixel. The UI label "Purchase" is
+            // not itself a safe API enum.
+            optimization_event: optimizationEvent,
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
