@@ -344,7 +344,7 @@ export async function POST(request: NextRequest) {
             "started",
             `Criando grupo ${groupIndex + 1}/${groupCount} da campanha ${campaignId}: ${country}, início ${startTime} UTC, término ${schedule.end} UTC.`,
           );
-          const groupResponse = await createAdgroup(token, {
+          const adgroupPayload: Record<string, unknown> = {
             advertiser_id: advertiserId,
             campaign_id: campaignId,
             adgroup_name: groupLabel,
@@ -375,7 +375,31 @@ export async function POST(request: NextRequest) {
             ...(ages.length ? { age_groups: ages } : {}),
             ...(operatingSystems ? { operating_systems: operatingSystems } : {}),
             operation_status: "DISABLE",
-          });
+          };
+
+          let groupResponse: Record<string, unknown>;
+          try {
+            groupResponse = await createAdgroup(token, adgroupPayload);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "";
+            if (!message.includes("Parameter error")) throw error;
+
+            // Catalogs owned by the same advertiser do not accept the BC
+            // authorization fields. Retry the same group (not a new campaign)
+            // with TikTok's minimal catalog-ad schema.
+            await log(
+              "info",
+              "adgroup",
+              "started",
+              "TikTok recusou campos estendidos; tentando o payload mínimo oficial do catálogo na mesma campanha.",
+            );
+            const minimalCatalogPayload = { ...adgroupPayload };
+            delete minimalCatalogPayload.catalog_authorized_bc_id;
+            delete minimalCatalogPayload.identity_authorized_bc_id;
+            delete minimalCatalogPayload.identity_type;
+            delete minimalCatalogPayload.placement_type;
+            groupResponse = await createAdgroup(token, minimalCatalogPayload);
+          }
           const adgroupId = entityId(groupResponse, ["adgroup_id", "id"]);
           if (!adgroupId) throw new Error(`O TikTok não retornou o ID do grupo da campanha ${campaignId}.`);
           adgroupIds.push(adgroupId);
