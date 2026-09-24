@@ -46,6 +46,8 @@ type LaunchRequest = {
   language?: string;
   ages?: string[];
   operating_system?: "ALL" | "ANDROID" | "IOS";
+  allow_comments?: boolean;
+  allow_video_downloads?: boolean;
   click_window?: string;
   view_window?: string;
   counting?: string;
@@ -484,6 +486,10 @@ export async function POST(request: NextRequest) {
             bid_type: "BID_TYPE_NO_BID",
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
+            // Audience interactions are opt-in in ThorTk. TikTok's API uses
+            // `*_disabled`, so false from the UI becomes true here.
+            comment_disabled: body?.allow_comments !== true,
+            video_download_disabled: body?.allow_video_downloads !== true,
             budget,
             budget_mode: "BUDGET_MODE_DAY",
             pacing: "PACING_MODE_SMOOTH",
