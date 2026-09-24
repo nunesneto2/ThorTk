@@ -9,6 +9,7 @@ import {
   loadAdvertiserAssets,
   loadAdvertiserCampaigns,
   loadCatalogs,
+  loadCatalogOverview,
   loadOverview,
   updateAdgroupStatus,
   updateAdStatus,
@@ -260,12 +261,35 @@ export async function POST(request: NextRequest) {
     if (!selectedCatalog) {
       throw new Error("O catálogo selecionado não está disponível neste Business Center.");
     }
-    const catalogCountry = selectedCatalog.currency ? CATALOG_CURRENCY_COUNTRY[selectedCatalog.currency.toUpperCase()] : undefined;
+    if (selectedCatalog.businessCenterId && selectedCatalog.businessCenterId !== businessCenterId) {
+      throw new Error(`O catálogo “${selectedCatalog.name}” pertence a outro Business Center. Selecione o BC proprietário antes de publicar.`);
+    }
+    if (selectedCatalog.adCreationEligible && selectedCatalog.adCreationEligible !== "AVAILABLE") {
+      throw new Error(`O catálogo “${selectedCatalog.name}” ainda não está elegível para criação de anúncios no TikTok (${selectedCatalog.adCreationEligible}).`);
+    }
+    const catalogCountry = (selectedCatalog.country && /^[A-Z]{2}$/i.test(selectedCatalog.country)
+      ? selectedCatalog.country.toUpperCase()
+      : undefined)
+      ?? (selectedCatalog.currency ? CATALOG_CURRENCY_COUNTRY[selectedCatalog.currency.toUpperCase()] : undefined);
     if (catalogCountry && country !== catalogCountry) {
       throw new Error(`O catálogo “${selectedCatalog.name}” usa ${selectedCatalog.currency}. Selecione ${catalogCountry} em País (location) antes de publicar.`);
     }
+    try {
+      const catalogOverview = await loadCatalogOverview(token, businessCenterId, catalogId);
+      if (catalogOverview.approved === 0) {
+        throw new Error(`O catálogo “${selectedCatalog.name}” não tem produtos aprovados pelo TikTok; não é possível criar um anúncio de catálogo.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "não disponível";
+      if (message.includes("não tem produtos aprovados")) throw error;
+      await log("info", "preflight", "started", `Não foi possível confirmar a auditoria dos produtos do catálogo agora: ${message}`);
+    }
 
     for (const advertiserId of advertiserIds) {
+      const advertiser = overview.advertisers.find((item) => item.id === advertiserId);
+      if (advertiser?.businessCenterId && advertiser.businessCenterId !== businessCenterId) {
+        throw new Error(`A conta ${advertiserId} pertence ao Business Center ${advertiser.businessCenterId}, mas o catálogo selecionado pertence ao BC ${businessCenterId}. Selecione conta e catálogo do mesmo BC.`);
+      }
       const pixelId = pixels[advertiserId]?.trim();
       const identityId = identities[advertiserId]?.trim();
       if (!pixelId || !identityId) {
@@ -394,7 +418,6 @@ export async function POST(request: NextRequest) {
               "TikTok recusou campos estendidos; tentando o payload mínimo oficial do catálogo na mesma campanha.",
             );
             const minimalCatalogPayload = { ...adgroupPayload };
-            delete minimalCatalogPayload.catalog_authorized_bc_id;
             delete minimalCatalogPayload.identity_authorized_bc_id;
             delete minimalCatalogPayload.identity_type;
             delete minimalCatalogPayload.placement_type;
