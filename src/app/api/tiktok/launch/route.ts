@@ -92,9 +92,9 @@ function tiktokDateTime(date: Date) {
 function campaignSchedule(delayMinutes: number) {
   const start = new Date(Date.now() + Math.max(0, delayMinutes) * 60_000);
   // TikTok requires an end timestamp whenever SCHEDULE_START_END is used.
-  // Keep the set active for one year; campaign, groups and ads are still
+  // Keep the set active for 30 days; campaign, groups and ads are still
   // initially created paused and are only enabled after the full tree exists.
-  const end = new Date(start.getTime() + 365 * 24 * 60 * 60_000);
+  const end = new Date(start.getTime() + 30 * 24 * 60 * 60_000);
   return { start: tiktokDateTime(start), end: tiktokDateTime(end) };
 }
 
@@ -343,9 +343,7 @@ export async function POST(request: NextRequest) {
             budget_mode: "BUDGET_MODE_DAY",
             pacing: "PACING_MODE_SMOOTH",
             schedule_start_time: startTime,
-            // This endpoint validates the field under its short name
-            // (`end_time`), as returned by TikTok's required-field error.
-            end_time: schedule.end,
+            schedule_end_time: schedule.end,
             schedule_type: "SCHEDULE_START_END",
             location_ids: [locationId],
             ...(language ? { languages: language } : {}),
