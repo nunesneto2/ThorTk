@@ -343,7 +343,9 @@ export async function POST(request: NextRequest) {
             budget_mode: "BUDGET_MODE_DAY",
             pacing: "PACING_MODE_SMOOTH",
             schedule_start_time: startTime,
-            schedule_end_time: schedule.end,
+            // This endpoint validates the field under its short name
+            // (`end_time`), as returned by TikTok's required-field error.
+            end_time: schedule.end,
             schedule_type: "SCHEDULE_START_END",
             location_ids: [locationId],
             ...(language ? { languages: language } : {}),
