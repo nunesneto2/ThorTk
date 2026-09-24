@@ -240,6 +240,8 @@ export async function POST(request: NextRequest) {
     const groupCount = positiveInt(body?.adgroups_per_campaign);
     const adCount = positiveInt(body?.ads_per_adgroup);
     const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
+    // Browser-provided times mirror Rocket's launch flow; fallback remains
+    // available for direct API callers that do not provide a schedule.
     const fallbackSchedule = campaignSchedule(delay);
     const schedule = {
       start: validTikTokDateTime(body?.schedule_start_time) || fallbackSchedule.start,
