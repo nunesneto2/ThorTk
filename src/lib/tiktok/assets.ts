@@ -284,6 +284,23 @@ export async function loadAdvertiserAssets(accessToken: string, advertiserId: st
   };
 }
 
+/**
+ * Returns the conversion events actually received by a selected pixel.  The
+ * Ads API uses a different enum from the Events API, so launch preflight uses
+ * this read-only response to avoid creating a campaign before it knows which
+ * optimization event TikTok will accept.
+ */
+export async function loadPixelEventStats(accessToken: string, advertiserId: string, pixelId: string) {
+  const endDate = new Date();
+  const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60_000);
+  const date = (value: Date) => value.toISOString().slice(0, 10);
+  return request("/pixel/event/stats/", accessToken, {
+    advertiser_id: advertiserId,
+    pixel_ids: JSON.stringify([pixelId]),
+    date_range: JSON.stringify({ start_date: date(startDate), end_date: date(endDate) }),
+  });
+}
+
 export async function createCustomIdentity(accessToken: string, advertiserId: string, displayName: string, imageUri: string) {
   return requestPost("/identity/create/", accessToken, { advertiser_id: advertiserId, display_name: displayName, image_uri: imageUri });
 }
