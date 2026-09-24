@@ -478,6 +478,10 @@ export async function POST(request: NextRequest) {
             // response for this selected pixel. The UI label "Purchase" is
             // not itself a safe API enum.
             optimization_event: optimizationEvent,
+            // Rocket's "Bid: auto" / enable_bid=false maps to TikTok's
+            // Maximum Delivery strategy. Without declaring it explicitly,
+            // this account defaults to Cost Cap and asks for a CPA value.
+            bid_type: "BID_TYPE_NO_BID",
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
