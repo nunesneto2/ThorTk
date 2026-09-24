@@ -399,6 +399,11 @@ export async function POST(request: NextRequest) {
             // PRODUCT_SALES is the campaign objective. The ad group itself
             // must declare the website promotion surface for catalog traffic.
             promotion_type: "WEBSITE",
+            // PRODUCT_SALES catalog delivery is a Video Shopping Ad. TikTok
+            // requires both fields below even when no remarketing audience is
+            // selected; omitting them produces only the generic parameter error.
+            shopping_ads_type: "VIDEO",
+            shopping_ads_retargeting_type: "OFF",
             product_source: "CATALOG",
             catalog_id: catalogId,
             catalog_authorized_bc_id: businessCenterId,
