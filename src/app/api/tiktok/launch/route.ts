@@ -329,6 +329,7 @@ export async function POST(request: NextRequest) {
             optimization_goal: "CONVERT",
             // The v1.3 API names the website purchase event ON_WEB_ORDER.
             optimization_event: "ON_WEB_ORDER",
+            placements: ["PLACEMENT_TIKTOK"],
             budget,
             budget_mode: "BUDGET_MODE_DAY",
             pacing: "PACING_MODE_SMOOTH",
