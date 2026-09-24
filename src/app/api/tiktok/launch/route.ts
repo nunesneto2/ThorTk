@@ -327,7 +327,8 @@ export async function POST(request: NextRequest) {
             pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
-            optimization_event: "PURCHASE",
+            // The v1.3 API names the website purchase event ON_WEB_ORDER.
+            optimization_event: "ON_WEB_ORDER",
             budget,
             budget_mode: "BUDGET_MODE_DAY",
             pacing: "PACING_MODE_SMOOTH",
