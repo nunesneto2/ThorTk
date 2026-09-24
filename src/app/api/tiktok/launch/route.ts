@@ -84,10 +84,18 @@ function positiveInt(value: unknown, fallback = 1) {
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
-function campaignStart(delayMinutes: number) {
-  const date = new Date(Date.now() + Math.max(0, delayMinutes) * 60_000);
+function tiktokDateTime(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+function campaignSchedule(delayMinutes: number) {
+  const start = new Date(Date.now() + Math.max(0, delayMinutes) * 60_000);
+  // TikTok requires an end timestamp whenever SCHEDULE_START_END is used.
+  // Keep the set active for one year; campaign, groups and ads are still
+  // initially created paused and are only enabled after the full tree exists.
+  const end = new Date(start.getTime() + 365 * 24 * 60 * 60_000);
+  return { start: tiktokDateTime(start), end: tiktokDateTime(end) };
 }
 
 function uniqueCampaignName(baseName: string, existingNames: Set<string>) {
@@ -215,7 +223,8 @@ export async function POST(request: NextRequest) {
     const groupCount = positiveInt(body?.adgroups_per_campaign);
     const adCount = positiveInt(body?.ads_per_adgroup);
     const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
-    const startTime = campaignStart(delay);
+    const schedule = campaignSchedule(delay);
+    const startTime = schedule.start;
     const ages = (body?.ages ?? []).map((age) => AGE_GROUPS[age]).filter(Boolean);
     const operatingSystems = body?.operating_system === "ALL" || !body?.operating_system
       ? undefined
@@ -334,6 +343,7 @@ export async function POST(request: NextRequest) {
             budget_mode: "BUDGET_MODE_DAY",
             pacing: "PACING_MODE_SMOOTH",
             schedule_start_time: startTime,
+            schedule_end_time: schedule.end,
             schedule_type: "SCHEDULE_START_END",
             location_ids: [locationId],
             ...(language ? { languages: language } : {}),
