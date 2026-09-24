@@ -64,6 +64,14 @@ const COUNTRY_LOCATION_IDS: Record<string, string> = {
   RO: "798549", SE: "2661886", US: "6252001", UY: "3439705",
 };
 
+// Catalog currencies only have one supported country in the launch flow. This
+// prevents TikTok's opaque parameter error when, for example, a BRL catalog is
+// sent with US targeting.
+const CATALOG_CURRENCY_COUNTRY: Record<string, string> = {
+  ARS: "AR", BOB: "BO", BRL: "BR", CAD: "CA", CLP: "CL", COP: "CO",
+  MXN: "MX", PEN: "PE", PYG: "PY", UYU: "UY",
+};
+
 const AGE_GROUPS: Record<string, string> = {
   "13–17": "AGE_13_17",
   "18–24": "AGE_18_24",
@@ -233,6 +241,7 @@ export async function POST(request: NextRequest) {
     const pixels = body?.pixels_by_advertiser ?? {};
     const identities = body?.identities_by_advertiser ?? {};
     const existingCampaignNames = new Map<string, Set<string>>();
+    const identityTypes = new Map<string, string>();
 
     const { data: businessCenter, error: businessCenterError } = await admin
       .from("tiktok_business_centers")
@@ -247,8 +256,13 @@ export async function POST(request: NextRequest) {
     }
 
     const catalogs = await loadCatalogs(token, businessCenterId);
-    if (!catalogs.some((catalog) => catalog.id === catalogId)) {
+    const selectedCatalog = catalogs.find((catalog) => catalog.id === catalogId);
+    if (!selectedCatalog) {
       throw new Error("O catálogo selecionado não está disponível neste Business Center.");
+    }
+    const catalogCountry = selectedCatalog.currency ? CATALOG_CURRENCY_COUNTRY[selectedCatalog.currency.toUpperCase()] : undefined;
+    if (catalogCountry && country !== catalogCountry) {
+      throw new Error(`O catálogo “${selectedCatalog.name}” usa ${selectedCatalog.currency}. Selecione ${catalogCountry} em País (location) antes de publicar.`);
     }
 
     for (const advertiserId of advertiserIds) {
@@ -261,9 +275,11 @@ export async function POST(request: NextRequest) {
       if (!assets.pixels.some((pixel) => pixel.id === pixelId)) {
         throw new Error(`O pixel selecionado não está disponível na conta ${advertiserId}.`);
       }
-      if (!assets.identities.some((identity) => identity.id === identityId)) {
+      const selectedIdentity = assets.identities.find((identity) => identity.id === identityId);
+      if (!selectedIdentity) {
         throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
       }
+      if (selectedIdentity.type) identityTypes.set(advertiserId, selectedIdentity.type);
       const currentCampaigns = await loadAdvertiserCampaigns(token, advertiserId);
       existingCampaignNames.set(
         advertiserId,
@@ -282,6 +298,7 @@ export async function POST(request: NextRequest) {
     for (const advertiserId of advertiserIds) {
       const pixelId = pixels[advertiserId]!.trim();
       const identityId = identities[advertiserId]!.trim();
+      const identityType = identityTypes.get(advertiserId);
 
       for (let campaignIndex = 0; campaignIndex < campaignCount; campaignIndex += 1) {
         const suffix = campaignCount > 1 ? ` ${String(campaignIndex + 1).padStart(2, "0")}` : "";
@@ -321,7 +338,12 @@ export async function POST(request: NextRequest) {
         const adIds: string[] = [];
         for (let groupIndex = 0; groupIndex < groupCount; groupIndex += 1) {
           const groupLabel = `${campaignLabel} · Grupo ${String(groupIndex + 1).padStart(2, "0")}`;
-          await log("info", "adgroup", "started", `Criando grupo ${groupIndex + 1}/${groupCount} da campanha ${campaignId}.`);
+          await log(
+            "info",
+            "adgroup",
+            "started",
+            `Criando grupo ${groupIndex + 1}/${groupCount} da campanha ${campaignId}: ${country}, início ${startTime} UTC, término ${schedule.end} UTC.`,
+          );
           const groupResponse = await createAdgroup(token, {
             advertiser_id: advertiserId,
             campaign_id: campaignId,
@@ -333,11 +355,14 @@ export async function POST(request: NextRequest) {
             catalog_id: catalogId,
             catalog_authorized_bc_id: businessCenterId,
             identity_id: identityId,
+            ...(identityType ? { identity_type: identityType } : {}),
+            identity_authorized_bc_id: businessCenterId,
             pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
             // The v1.3 API names the website purchase event ON_WEB_ORDER.
             optimization_event: "ON_WEB_ORDER",
+            placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
             budget_mode: "BUDGET_MODE_DAY",
