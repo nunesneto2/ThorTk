@@ -33,6 +33,7 @@ import Image from "next/image";
 type Choice = {
   id: string;
   name: string;
+  pixelCode?: string;
   currency?: string;
   status?: string;
   type?: string;
@@ -57,6 +58,7 @@ type Notice = {
   /** Connection feedback belongs only to the Connect step. */
   scope?: "connect";
 };
+const CONNECT_NOTICE_TIMEOUT_MS = 5_000;
 type CatalogMode = "ALL" | "SETS";
 type OperatingSystem = "ALL" | "ANDROID" | "IOS";
 type AccountFilter = "ALL" | "ACTIVE" | "SUSPENDED" | "SELECTED";
@@ -284,6 +286,15 @@ export default function Home() {
   const [assetProgress, setAssetProgress] = useState<AssetProgress | null>(
     null,
   );
+
+  useEffect(() => {
+    if (notice?.scope !== "connect") return;
+    const timeout = window.setTimeout(
+      () => setNotice((current) => (current === notice ? null : current)),
+      CONNECT_NOTICE_TIMEOUT_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
   const connectedBusinessCenters = overview.businessCenters.filter(
     (item) => item.selected,
   );
@@ -670,6 +681,7 @@ export default function Home() {
           text: selected
             ? "Business Center conectada à operação."
             : "Business Center removida da operação.",
+          scope: "connect",
         });
       } catch (error) {
         setNotice({
@@ -678,6 +690,7 @@ export default function Home() {
             error instanceof Error
               ? error.message
               : "Falha ao atualizar a Business Center.",
+          scope: "connect",
         });
         await loadOverview();
       } finally {
@@ -807,6 +820,7 @@ export default function Home() {
     [identityImagePreview],
   );
   const go = (next: number) => {
+    if (next !== 0 && notice?.scope === "connect") setNotice(null);
     setStep(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1998,7 +2012,7 @@ function AssetSelect({
             <option value="">Selecione</option>
             {values.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name} · {item.id}
+                {item.name} · {item.pixelCode || item.id}
               </option>
             ))}
           </select>
@@ -4335,4 +4349,3 @@ function LaunchConsole({
     </div>
   );
 }
-
