@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
     const locationId = COUNTRY_LOCATION_IDS[country];
     if (!locationId) throw new Error("O país selecionado ainda não possui localização TikTok configurada.");
 
-    await log("info", "preflight", "started", "Validando autorização, contas e configuração antes de publicar.");
+    await log("info", "preflight", "started", "Conferindo autorização, contas e configurações antes de publicar.");
     const current = await activeConnection();
     if (!current?.connection) throw new Error("Conecte o TikTok antes de iniciar a publicação.");
     const { connection, admin, userId } = current;
@@ -356,13 +356,13 @@ export async function POST(request: NextRequest) {
         "success",
         "preflight",
         "succeeded",
-        `Pixel “${selectedPixel.name}”: ID ${selectedPixel.id}, código ${selectedPixel.pixelCode}; Purchase confirmado pelo TikTok como ${purchaseEvent.optimizationEvent}.`,
+        `Pixel “${selectedPixel.name}” confirmado. A conversão de compra usará o evento técnico ${purchaseEvent.optimizationEvent} (ID ${selectedPixel.id}; código ${selectedPixel.pixelCode}).`,
       );
       await log(
         "info",
         "preflight",
         "started",
-        `Vinculando o pixel “${selectedPixel.name}” (${selectedPixel.pixelCode}) ao catálogo selecionado.`,
+        `Conectando o pixel “${selectedPixel.name}” ao catálogo para medir as compras.`,
       );
       try {
         await bindCatalogWebsitePixel(token, {
@@ -371,11 +371,11 @@ export async function POST(request: NextRequest) {
           catalogId,
           pixelCode: selectedPixel.pixelCode,
         });
-        await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” conectado ao catálogo.`);
+        await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” conectado ao catálogo para medição de compras.`);
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (!/already|exist|bound|duplicat/i.test(message)) throw error;
-        await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” já estava conectado ao catálogo.`);
+        await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” já estava conectado ao catálogo para medição de compras.`);
       }
       pixelIds.set(advertiserId, selectedPixel.id);
       pixelOptimizationEvents.set(advertiserId, purchaseEvent.optimizationEvent);
@@ -396,7 +396,7 @@ export async function POST(request: NextRequest) {
       "success",
       "preflight",
       "succeeded",
-      `Validação concluída. BC, catálogo, pixels e Identities confirmados. ${totalOperations} ação(ões) serão executadas em sequência; início no TikTok: ${delay ? `+${delay} min` : "agora"}.`,
+      `Tudo conferido: Business Center, catálogo, pixel e identidade estão prontos. Serão ${totalOperations} etapas em sequência; a entrega começa no TikTok ${delay ? `em ${delay} min` : "agora"}.`,
     );
 
     for (const advertiserId of advertiserIds) {
@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
             `O nome “${requestedCampaignLabel}” já existe; usando “${campaignLabel}”.`,
           );
         }
-        await log("info", "campaign", "started", `Criando campanha “${campaignLabel}” na conta ${advertiserId}.`);
+        await log("info", "campaign", "started", `Criando a campanha “${campaignLabel}” na conta ${advertiserId}. Ela ficará pausada até a estrutura inteira estar pronta.`);
         const campaignResponse = await createCampaign(token, {
           advertiser_id: advertiserId,
           campaign_name: campaignLabel,
@@ -438,7 +438,7 @@ export async function POST(request: NextRequest) {
         const campaignId = entityId(campaignResponse, ["campaign_id", "id"]);
         if (!campaignId) throw new Error("O TikTok não retornou o ID da campanha criada.");
         created.campaigns += 1;
-        await log("success", "campaign", "succeeded", `Campanha criada e mantida pausada.`, campaignId);
+        await log("success", "campaign", "succeeded", `Campanha criada. Ela continua pausada enquanto montamos os conjuntos e anúncios.`, campaignId);
         await progress();
 
         const adgroupIds: string[] = [];
@@ -449,7 +449,7 @@ export async function POST(request: NextRequest) {
             "info",
             "adgroup",
             "started",
-            `Criando grupo ${groupIndex + 1}/${groupCount} da campanha ${campaignId}: ${country}, início ${startTime} UTC, término ${schedule.end} UTC.`,
+            `Configurando o conjunto ${groupIndex + 1}/${groupCount} da campanha ${campaignId}: público em ${country}, início ${startTime} UTC e término ${schedule.end} UTC.`,
           );
           const adgroupPayload: Record<string, unknown> = {
             advertiser_id: advertiserId,
@@ -525,11 +525,11 @@ export async function POST(request: NextRequest) {
           if (!adgroupId) throw new Error(`O TikTok não retornou o ID do grupo da campanha ${campaignId}.`);
           adgroupIds.push(adgroupId);
           created.adgroups += 1;
-          await log("success", "adgroup", "succeeded", `Grupo criado e mantido pausado.`, adgroupId);
+          await log("success", "adgroup", "succeeded", `Conjunto criado e pausado. Orçamento, público, pixel e período foram aplicados.`, adgroupId);
           await progress();
 
           for (let adIndex = 0; adIndex < adCount; adIndex += 1) {
-            await log("info", "ad", "started", `Criando anúncio ${adIndex + 1}/${adCount} do grupo ${adgroupId}.`);
+            await log("info", "ad", "started", `Montando o anúncio ${adIndex + 1}/${adCount} do conjunto ${adgroupId} com os produtos do catálogo.`);
             const adResponse = await createAd(token, {
               advertiser_id: advertiserId,
               adgroup_id: adgroupId,
@@ -556,18 +556,18 @@ export async function POST(request: NextRequest) {
             if (!adId) throw new Error(`O TikTok não retornou o ID do anúncio do grupo ${adgroupId}.`);
             adIds.push(adId);
             created.ads += 1;
-            await log("success", "ad", "succeeded", `Anúncio de catálogo criado e mantido pausado.`, adId);
+            await log("success", "ad", "succeeded", `Anúncio de catálogo criado e pausado. O criativo usará os produtos e vídeos do catálogo.`, adId);
             await progress();
           }
         }
 
         // Activate only a complete campaign tree. A validation failure above
         // leaves the campaign paused and immediately stops the operation.
-        await log("info", "activation", "started", `Ativando a estrutura completa da campanha ${campaignId}.`);
+        await log("info", "activation", "started", `Tudo foi criado. Ativando campanha, conjuntos e anúncios da estrutura ${campaignId}.`);
         if (adIds.length) await updateAdStatus(token, advertiserId, adIds, "ENABLE");
         if (adgroupIds.length) await updateAdgroupStatus(token, advertiserId, adgroupIds, "ENABLE");
         await updateCampaignStatus(token, advertiserId, [campaignId], "ENABLE");
-        await log("success", "activation", "succeeded", `Estrutura completa ativada no TikTok.`, campaignId);
+        await log("success", "activation", "succeeded", `Estrutura completa ativada no TikTok. A campanha já pode entregar conforme o agendamento.`, campaignId);
         await progress();
       }
     }
