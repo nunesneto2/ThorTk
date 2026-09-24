@@ -973,7 +973,7 @@ export default function Home() {
         onRefresh={loadOverview}
         onPreset={applyPreset}
       />
-      <div className="relative mx-auto flex min-h-[calc(100vh-60px)] max-w-[1720px] flex-col px-6 pb-5 pt-3 lg:px-10">
+      <div className="relative mx-auto flex min-h-[calc(100dvh-60px)] max-w-[1440px] flex-col px-4 pb-4 pt-2 sm:px-6 sm:pb-5 sm:pt-3 xl:px-8">
         <Journey step={step} onChange={go} />
         {notice && (notice.scope !== "connect" || step === 0) && (
           <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
@@ -1264,7 +1264,7 @@ function RocketHeader({
 }) {
   return (
     <header className="relative z-20 h-[60px] border-b border-white/[.055] bg-[#070a0c]/90">
-      <div className="mx-auto flex h-full max-w-[1720px] items-center justify-between px-6 lg:px-10">
+      <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 sm:px-6 xl:px-8">
         <div>
           <p className="thor-title text-[22px] leading-5 text-white">
             Thor<span className="text-[#d8b56b]">Tk</span>
@@ -2721,7 +2721,7 @@ function CreativeScreen({
       </div>
       <div className="rocket-section mt-3">
         <p className="section-label">Complemento interativo</p>
-        <div className="mt-3 grid grid-cols-4 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
           {addOns.map(([key, label, Icon]) => (
             <button
               type="button"
@@ -4362,7 +4362,7 @@ function LaunchConsole({
             </button>
           </div>
         </div>
-        <div className="p-4 sm:p-5">
+        <div className="console-modal__body p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[.06] pb-3 text-xs">
             <div className="flex flex-wrap gap-1.5 text-zinc-400">
               {tabs.map((tab) => (
@@ -4421,7 +4421,7 @@ function LaunchConsole({
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
-          <div ref={logViewport} className="console-log mt-3 h-[238px] space-y-2 overflow-y-auto pr-1 font-mono text-[11px] leading-5">
+          <div ref={logViewport} className="console-log mt-3 space-y-2 overflow-y-auto pr-1 font-mono text-[11px] leading-5">
             {visibleLogs.map((entry) => (
               <p
                 key={entry.id}
