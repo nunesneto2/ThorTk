@@ -36,7 +36,7 @@ type LaunchRequest = {
   catalog_id?: string;
   campaign_name?: string;
   budget_per_adgroup?: number;
-  bid_type?: "BID_TYPE_NO_BID" | "BID_TYPE_COST_CAP";
+  bid_type?: "BID_TYPE_NO_BID" | "BID_TYPE_CUSTOM";
   bid_price?: number;
   campaigns?: number;
   adgroups_per_campaign?: number;
@@ -221,8 +221,8 @@ export async function POST(request: NextRequest) {
     const businessCenterId = body?.business_center_id?.trim() ?? "";
     const campaignName = body?.campaign_name?.trim() ?? "";
     const budget = Number(body?.budget_per_adgroup);
-    const bidType = body?.bid_type === "BID_TYPE_COST_CAP"
-      ? "BID_TYPE_COST_CAP"
+    const bidType = body?.bid_type === "BID_TYPE_CUSTOM"
+      ? "BID_TYPE_CUSTOM"
       : "BID_TYPE_NO_BID";
     const bidPrice = Number(body?.bid_price);
     const country = body?.country?.toUpperCase() ?? "";
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(budget) || budget <= 0) {
       throw new Error("Informe um orçamento diário por grupo maior que zero.");
     }
-    if (bidType === "BID_TYPE_COST_CAP" && (!Number.isFinite(bidPrice) || bidPrice <= 0)) {
+    if (bidType === "BID_TYPE_CUSTOM" && (!Number.isFinite(bidPrice) || bidPrice <= 0)) {
       throw new Error("Informe um CPA alvo maior que zero antes de publicar.");
     }
     const locationId = COUNTRY_LOCATION_IDS[country];
@@ -407,7 +407,7 @@ export async function POST(request: NextRequest) {
       "success",
       "preflight",
       "succeeded",
-      `Tudo conferido: Business Center, catálogo, pixel e identidade estão prontos. ${bidType === "BID_TYPE_COST_CAP" ? `Lance CPA (Cost Cap) definido em ${bidPrice}. ` : "Lance em Máxima Entrega. "}Serão ${totalOperations} etapas em sequência; a entrega começa no TikTok ${delay ? `em ${delay} min` : "agora"}.`,
+      `Tudo conferido: Business Center, catálogo, pixel e identidade estão prontos. ${bidType === "BID_TYPE_CUSTOM" ? `Lance CPA (Cost Cap) definido em ${bidPrice}. ` : "Lance em Máxima Entrega. "}Serão ${totalOperations} etapas em sequência; a entrega começa no TikTok ${delay ? `em ${delay} min` : "agora"}.`,
     );
 
     for (const advertiserId of advertiserIds) {
@@ -492,10 +492,9 @@ export async function POST(request: NextRequest) {
             // response for this selected pixel. The UI label "Purchase" is
             // not itself a safe API enum.
             optimization_event: optimizationEvent,
-            // Maximum Delivery does not use a target price. When the user
-            // enables CPA, Cost Cap receives the explicit target instead.
+            // TikTok receives the CPA target through its custom-bid enum.
             bid_type: bidType,
-            ...(bidType === "BID_TYPE_COST_CAP" ? { bid_price: bidPrice } : {}),
+            ...(bidType === "BID_TYPE_CUSTOM" ? { bid_price: bidPrice } : {}),
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             // Audience interactions are opt-in in ThorTk. TikTok's API uses

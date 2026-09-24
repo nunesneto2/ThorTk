@@ -468,7 +468,7 @@ export default function Home() {
           catalog_id: catalogId,
           campaign_name: campaignName,
           budget_per_adgroup: budget,
-          bid_type: cpa ? "BID_TYPE_COST_CAP" : "BID_TYPE_NO_BID",
+          bid_type: cpa ? "BID_TYPE_CUSTOM" : "BID_TYPE_NO_BID",
           ...(cpa ? { bid_price: cpaBidAmount } : {}),
           campaigns: Math.max(1, Number(campaigns) || 1),
           adgroups_per_campaign: Math.max(1, Number(groups) || 1),
