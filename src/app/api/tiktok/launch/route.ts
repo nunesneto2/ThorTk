@@ -562,6 +562,15 @@ export async function POST(request: NextRequest) {
                 // (Rocket's manual flow has an empty product_link for this
                 // reason), rather than leaving Website type as Select.
                 shopping_ads_fallback_type: "SHOPPING_ADS",
+                // TikTok appends these parameters to each catalog product_url
+                // when SHOPPING_ADS is used. The campaign macro is resolved by
+                // TikTok only after the final campaign name (including any
+                // collision suffix) is known.
+                utm_params: [
+                  { key: "utm_source", value: "tiktok" },
+                  { key: "utm_medium", value: "paid_social" },
+                  { key: "utm_campaign", value: "__CAMPAIGN_NAME__" },
+                ],
                 dynamic_destination: "UNSET",
                 operation_status: "DISABLE",
               }],
