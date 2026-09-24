@@ -6,7 +6,6 @@ import {
   createAd,
   createAdgroup,
   createCampaign,
-  createWebsitePurchaseEvent,
   loadAdvertiserAssets,
   loadAdvertiserCampaigns,
   loadCatalogAvailableCountries,
@@ -414,8 +413,10 @@ export async function POST(request: NextRequest) {
             pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
-            // Website Purchase is represented by ON_WEB_ORDER in the Ads API.
-            optimization_event: "ON_WEB_ORDER",
+            // The selected pixel receives Purchase through Events API/server.
+            // PRODUCT_SALES expects TikTok's deep-funnel purchase enum, not
+            // the literal server event name or a mutable web-event mapping.
+            optimization_event: "DEEP_PURCHASE",
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
@@ -454,24 +455,7 @@ export async function POST(request: NextRequest) {
             }
           };
 
-          let groupResponse: Record<string, unknown>;
-          try {
-            groupResponse = await createWithPlacementFallback();
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "";
-            const missingPurchaseEvent = message.includes("This pixel event type does not exist") || message.includes("Select a pixel event");
-            if (!missingPurchaseEvent) throw error;
-
-            await log(
-              "info",
-              "adgroup",
-              "started",
-              "A conversão de compra ainda não estava registrada para este pixel; criando o mapeamento Purchase → ON_WEB_ORDER e repetindo o grupo.",
-            );
-            await createWebsitePurchaseEvent(token, advertiserId, pixelId);
-            await log("success", "adgroup", "succeeded", "Conversão de compra registrada no pixel; repetindo a criação do grupo.");
-            groupResponse = await createWithPlacementFallback();
-          }
+          const groupResponse = await createWithPlacementFallback();
           const adgroupId = entityId(groupResponse, ["adgroup_id", "id"]);
           if (!adgroupId) throw new Error(`O TikTok não retornou o ID do grupo da campanha ${campaignId}.`);
           adgroupIds.push(adgroupId);
