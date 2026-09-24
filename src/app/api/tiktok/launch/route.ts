@@ -39,6 +39,8 @@ type LaunchRequest = {
   adgroups_per_campaign?: number;
   ads_per_adgroup?: number;
   start_delay_minutes?: number;
+  schedule_start_time?: string;
+  schedule_end_time?: string;
   country?: string;
   language?: string;
   ages?: string[];
@@ -102,10 +104,15 @@ function tiktokDateTime(date: Date) {
 function campaignSchedule(delayMinutes: number) {
   const start = new Date(Date.now() + Math.max(0, delayMinutes) * 60_000);
   // TikTok requires an end timestamp whenever SCHEDULE_START_END is used.
-  // Keep the set active for 30 days; campaign, groups and ads are still
+  // Keep the set active for one year; campaign, groups and ads are still
   // initially created paused and are only enabled after the full tree exists.
-  const end = new Date(start.getTime() + 30 * 24 * 60 * 60_000);
+  const end = new Date(start.getTime() + 365 * 24 * 60 * 60_000);
   return { start: tiktokDateTime(start), end: tiktokDateTime(end) };
+}
+
+function validTikTokDateTime(value: unknown) {
+  const dateTime = typeof value === "string" ? value.trim() : "";
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateTime) ? dateTime : "";
 }
 
 function uniqueCampaignName(baseName: string, existingNames: Set<string>) {
@@ -233,11 +240,15 @@ export async function POST(request: NextRequest) {
     const groupCount = positiveInt(body?.adgroups_per_campaign);
     const adCount = positiveInt(body?.ads_per_adgroup);
     const delay = Math.max(0, Math.floor(Number(body?.start_delay_minutes) || 0));
-    const schedule = campaignSchedule(delay);
+    const fallbackSchedule = campaignSchedule(delay);
+    const schedule = {
+      start: validTikTokDateTime(body?.schedule_start_time) || fallbackSchedule.start,
+      end: validTikTokDateTime(body?.schedule_end_time) || fallbackSchedule.end,
+    };
     const startTime = schedule.start;
     const ages = (body?.ages ?? []).map((age) => AGE_GROUPS[age]).filter(Boolean);
     const operatingSystems = body?.operating_system === "ALL" || !body?.operating_system
-      ? undefined
+      ? ["ANDROID", "IOS"]
       : [body.operating_system];
     const language = body?.language && body.language !== "all" ? [body.language] : undefined;
     const pixels = body?.pixels_by_advertiser ?? {};
@@ -427,7 +438,7 @@ export async function POST(request: NextRequest) {
               "info",
               "adgroup",
               "started",
-              "TikTok recusou campos estendidos; tentando o payload mínimo oficial do catálogo na mesma campanha.",
+              "TikTok recusou a primeira variação; mantendo catálogo, BC e Identity e repetindo sem o modo opcional de placement.",
             );
             const minimalCatalogPayload = { ...adgroupPayload };
             delete minimalCatalogPayload.placement_type;
