@@ -1427,7 +1427,10 @@ function Journey({
               <span key={index} className={`journey-energy-link journey-energy-link--${state}`}>
                 <svg viewBox="0 0 100 12" preserveAspectRatio="none" focusable="false">
                   <path className="journey-energy-link__trace" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
+                  <path className="journey-energy-link__field" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
                   <path className="journey-energy-link__bolt" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
+                  <path className="journey-energy-link__pulse" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
+                  <path className="journey-energy-link__pulse journey-energy-link__pulse--echo" d="M0 6 L17 4.5 L28 7 L43 3.8 L61 7.4 L77 4.1 L100 6" />
                 </svg>
               </span>
             );
@@ -4444,7 +4447,7 @@ function LaunchConsole({
     if (!AudioContextClass) return;
     const context = new AudioContextClass();
     const now = context.currentTime;
-    const duration = 0.78;
+    const duration = 1.08;
     const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
     const noise = buffer.getChannelData(0);
     for (let index = 0; index < noise.length; index += 1) {
@@ -4452,44 +4455,67 @@ function LaunchConsole({
       noise[index] = (Math.random() * 2 - 1) * Math.pow(1 - progress, 2.8);
     }
 
+    const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    master.gain.setValueAtTime(0.95, now);
+    compressor.threshold.setValueAtTime(-18, now);
+    compressor.knee.setValueAtTime(16, now);
+    compressor.ratio.setValueAtTime(7, now);
+    compressor.attack.setValueAtTime(0.003, now);
+    compressor.release.setValueAtTime(0.22, now);
+    master.connect(compressor).connect(context.destination);
+
     const rumble = context.createBufferSource();
     rumble.buffer = buffer;
     const lowPass = context.createBiquadFilter();
     lowPass.type = "lowpass";
-    lowPass.frequency.setValueAtTime(520, now);
-    lowPass.frequency.exponentialRampToValueAtTime(130, now + duration);
+    lowPass.frequency.setValueAtTime(620, now);
+    lowPass.frequency.exponentialRampToValueAtTime(115, now + duration);
     const rumbleGain = context.createGain();
     rumbleGain.gain.setValueAtTime(0.0001, now);
-    rumbleGain.gain.exponentialRampToValueAtTime(0.096, now + 0.035);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.13, now + 0.028);
     rumbleGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    rumble.connect(lowPass).connect(rumbleGain).connect(context.destination);
+    rumble.connect(lowPass).connect(rumbleGain).connect(master);
 
     const crack = context.createBiquadFilter();
     crack.type = "bandpass";
-    crack.frequency.setValueAtTime(1_650, now);
+    crack.frequency.setValueAtTime(1_850, now);
     crack.Q.value = 0.75;
     const crackGain = context.createGain();
     crackGain.gain.setValueAtTime(0.0001, now);
-    crackGain.gain.exponentialRampToValueAtTime(0.052, now + 0.009);
-    crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-    rumble.connect(crack).connect(crackGain).connect(context.destination);
+    crackGain.gain.exponentialRampToValueAtTime(0.082, now + 0.007);
+    crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    rumble.connect(crack).connect(crackGain).connect(master);
 
     const strike = context.createOscillator();
     const strikeGain = context.createGain();
     strike.type = "triangle";
-    strike.frequency.setValueAtTime(82, now);
-    strike.frequency.exponentialRampToValueAtTime(47, now + 0.38);
+    strike.frequency.setValueAtTime(96, now);
+    strike.frequency.exponentialRampToValueAtTime(42, now + 0.56);
     strikeGain.gain.setValueAtTime(0.0001, now);
-    strikeGain.gain.exponentialRampToValueAtTime(0.066, now + 0.018);
-    strikeGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.44);
-    strike.connect(strikeGain).connect(context.destination);
+    strikeGain.gain.exponentialRampToValueAtTime(0.09, now + 0.015);
+    strikeGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+    strike.connect(strikeGain).connect(master);
+
+    const undertone = context.createOscillator();
+    const undertoneGain = context.createGain();
+    undertone.type = "sine";
+    undertone.frequency.setValueAtTime(58, now + 0.04);
+    undertone.frequency.exponentialRampToValueAtTime(33, now + 0.92);
+    undertoneGain.gain.setValueAtTime(0.0001, now);
+    undertoneGain.gain.exponentialRampToValueAtTime(0.068, now + 0.07);
+    undertoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.98);
+    undertone.connect(undertoneGain).connect(master);
 
     rumble.start(now);
     rumble.stop(now + duration);
     strike.start(now);
-    strike.stop(now + 0.46);
-    window.setTimeout(() => void context.close(), 1_000);
+    strike.stop(now + 0.64);
+    undertone.start(now + 0.04);
+    undertone.stop(now + 1);
+    window.setTimeout(() => void context.close(), 1_400);
   }, []);
+
   useEffect(() => {
     if (submitting) {
       announcedExecution.current = null;
