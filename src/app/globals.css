@@ -297,3 +297,10 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 @media (prefers-reduced-motion: reduce) { .thor-crest, .console-orb, .asgard-controller *, .asgard-controller--complete .asgard-base { animation: none !important; transition: none !important; } .asgard-core { transform: translate(-50%, -50%) !important; will-change: auto; } }
 
 @media (prefers-reduced-motion: reduce) { .journey-active, .journey-energy-link__pulse { animation: none !important; } .journey-energy-link__pulse { opacity: 0 !important; } }
+
+.notice-toast { position: fixed; z-index: 45; top: 76px; right: clamp(1rem, 3vw, 2rem); width: min(calc(100vw - 2rem), 410px); margin: 0; background: linear-gradient(135deg, rgba(15,43,38,.98), rgba(9,25,27,.98)); box-shadow: 0 18px 46px rgba(0,0,0,.4), inset 0 1px rgba(255,255,255,.04); animation: notice-toast-enter 240ms cubic-bezier(.2,.8,.25,1) both; }
+.notice-toast .connection-status-card__icon { box-shadow: 0 0 0 6px rgba(91,225,170,.05); }
+.notice-toast:has(.text-red-100) { background: linear-gradient(135deg, rgba(64,24,30,.98), rgba(30,18,23,.98)); }
+.notice-toast:has(.text-red-100) .connection-status-card__icon { background: rgba(251,113,133,.14); color: #ffadb9; box-shadow: 0 0 0 6px rgba(251,113,133,.05); }
+@keyframes notice-toast-enter { from { opacity: 0; transform: translate3d(12px,-8px,0) scale(.98); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
+@media (max-width: 640px) { .notice-toast { top: 68px; right: 1rem; left: 1rem; width: auto; } }

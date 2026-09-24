@@ -319,7 +319,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (notice?.scope !== "connect") return;
+    if (!notice || notice.tone === "error") return;
     const timeout = window.setTimeout(
       () => setNotice((current) => (current === notice ? null : current)),
       CONNECT_NOTICE_TIMEOUT_MS,
@@ -1493,8 +1493,8 @@ function NoticeBanner({
         : "border-amber-400/25 bg-amber-400/[.08] text-amber-100";
   return (
     <aside
-      className={`connection-status-card mt-4 flex items-start justify-between gap-4 rounded-xl border p-4 text-xs ${style}`}
-      aria-live="polite"
+      className={`notice-toast connection-status-card flex items-start justify-between gap-4 rounded-xl border p-4 text-xs ${style}`}
+      aria-live={notice.tone === "error" ? "assertive" : "polite"}
     >
       <span className="flex min-w-0 items-start gap-3">
         <span className="connection-status-card__icon">
@@ -1506,7 +1506,7 @@ function NoticeBanner({
         </span>
         <span className="min-w-0">
           <b className="block text-sm">
-            {notice.tone === "success" ? "Canal TikTok sincronizado" : "Status da conexão"}
+            {notice.tone === "success" ? "Operação concluída" : notice.tone === "error" ? "Atenção necessária" : "Aviso da operação"}
           </b>
           <small className="mt-1 block leading-5 opacity-80">{notice.text}</small>
         </span>
