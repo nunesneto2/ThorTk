@@ -2699,6 +2699,7 @@ function AsgardController({
         sizes="(max-width: 760px) 220px, (max-width: 1180px) 340px, 410px"
         className="asgard-base"
       />
+      <span className="asgard-energy-well" />
       <Image
         src="/asgard-controller-glow.webp"
         alt=""
