@@ -284,24 +284,6 @@ export async function loadAdvertiserAssets(accessToken: string, advertiserId: st
   };
 }
 
-/** Registers the Ads API purchase conversion for an existing Pixel event. */
-export async function createWebsitePurchaseEvent(accessToken: string, advertiserId: string, pixelId: string) {
-  // The Events API emits the selected pixel's standard event as "Purchase".
-  // Adgroup creation, however, uses the website-conversion enum
-  // ON_WEB_ORDER. Register this mapping only after TikTok confirms it is
-  // missing, so normal launches never mutate measurement configuration.
-  return requestPost("/pixel/event/create/", accessToken, {
-    advertiser_id: advertiserId,
-    pixel_id: pixelId,
-    pixel_events: [{
-      event_code: "Purchase",
-      event_name: "Purchase",
-      event_type: "ON_WEB_ORDER",
-      statistic_type: "EVERY_TIME",
-    }],
-  });
-}
-
 export async function createCustomIdentity(accessToken: string, advertiserId: string, displayName: string, imageUri: string) {
   return requestPost("/identity/create/", accessToken, { advertiser_id: advertiserId, display_name: displayName, image_uri: imageUri });
 }
