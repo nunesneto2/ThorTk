@@ -258,7 +258,10 @@ export async function POST(request: NextRequest) {
     const identities = body?.identities_by_advertiser ?? {};
     const existingCampaignNames = new Map<string, Set<string>>();
     const identityTypes = new Map<string, string>();
-    const pixelCodes = new Map<string, string>();
+    // The asset-list ID identifies the pixel to adgroup/create; the event
+    // source bind endpoint above is the only catalog endpoint that takes its
+    // Events Manager pixel_code.
+    const pixelIds = new Map<string, string>();
 
     const { data: businessCenter, error: businessCenterError } = await admin
       .from("tiktok_business_centers")
@@ -348,7 +351,7 @@ export async function POST(request: NextRequest) {
         if (!/already|exist|bound|duplicat/i.test(message)) throw error;
         await log("success", "preflight", "succeeded", `Pixel “${selectedPixel.name}” já estava conectado ao catálogo.`);
       }
-      pixelCodes.set(advertiserId, selectedPixel.pixelCode);
+      pixelIds.set(advertiserId, selectedPixel.id);
       const selectedIdentity = assets.identities.find((identity) => identity.id === identityId);
       if (!selectedIdentity) {
         throw new Error(`A Identity selecionada não está disponível na conta ${advertiserId}.`);
@@ -370,8 +373,8 @@ export async function POST(request: NextRequest) {
     );
 
     for (const advertiserId of advertiserIds) {
-      const pixelCode = pixelCodes.get(advertiserId);
-      if (!pixelCode) throw new Error(`Código do pixel não encontrado para a conta ${advertiserId}.`);
+      const pixelId = pixelIds.get(advertiserId);
+      if (!pixelId) throw new Error(`ID do pixel não encontrado para a conta ${advertiserId}.`);
       const identityId = identities[advertiserId]!.trim();
       const identityType = identityTypes.get(advertiserId);
 
@@ -437,15 +440,14 @@ export async function POST(request: NextRequest) {
             identity_id: identityId,
             ...(identityType ? { identity_type: identityType } : {}),
             ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-            // Use the Events Manager code, exactly as Catalog Manager/Rocket
-            // does, not the numeric asset-list identifier shown in the UI.
-            pixel_id: pixelCode,
+            // adgroup/create uses the numeric asset ID. The Events Manager
+            // code is used only in catalog/eventsource/bind above.
+            pixel_id: pixelId,
             billing_event: "OCPM",
             optimization_goal: "CONVERT",
-            // The selected pixel receives Purchase through Events API/server.
-            // PRODUCT_SALES expects TikTok's deep-funnel purchase enum, not
-            // the literal server event name or a mutable web-event mapping.
-            optimization_event: "DEEP_PURCHASE",
+            // Ads Manager labels this as “Purchase”. In this v1.3 endpoint
+            // the corresponding website purchase enum is ON_WEB_ORDER.
+            optimization_event: "ON_WEB_ORDER",
             placement_type: "PLACEMENT_TYPE_NORMAL",
             placements: ["PLACEMENT_TIKTOK"],
             budget,
