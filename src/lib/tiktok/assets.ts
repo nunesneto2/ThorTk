@@ -10,6 +10,8 @@ type TikTokEnvelope = {
 export type Choice = {
   id: string;
   name: string;
+  /** TikTok's Events Manager code (for example, D8D5…). */
+  pixelCode?: string;
   currency?: string;
   status?: string;
   type?: string;
@@ -108,6 +110,9 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
       || readText(catalogConfig?.currency);
     const status = ["status", "advertiser_status", "operation_status"].map((key) => readText(item[key])).find(Boolean);
     const type = kind === "identity" ? readText(item.identity_type) : undefined;
+    const pixelCode = kind === "pixel"
+      ? ["pixel_code", "code"].map((key) => readText(item[key])).find(Boolean)
+      : undefined;
     const country = kind === "catalog"
       ? readText(catalogConfig?.region_code) || readText(catalogConfig?.country)
       : undefined;
@@ -123,6 +128,7 @@ function normalize(items: Record<string, unknown>[], kind: "bc" | "advertiser" |
       currency: currency || undefined,
       status: status || undefined,
       type: type || undefined,
+      pixelCode: pixelCode || undefined,
       country: country || undefined,
       businessCenterId: businessCenterId || undefined,
       adCreationEligible: adCreationEligible || undefined,
@@ -290,6 +296,25 @@ export async function createCustomIdentity(accessToken: string, advertiserId: st
 
 export async function createPixel(accessToken: string, advertiserId: string, pixelName: string) {
   return requestPost("/pixel/create/", accessToken, { advertiser_id: advertiserId, pixel_category: "ONLINE_STORE", pixel_name: pixelName, partner_name: "ThorTk" });
+}
+
+/**
+ * This is the API equivalent of Catalog Manager's “Connect now”. It links an
+ * existing website pixel to the selected catalog; it does not create or alter
+ * any pixel event.
+ */
+export async function bindCatalogWebsitePixel(accessToken: string, input: {
+  advertiserId: string;
+  businessCenterId: string;
+  catalogId: string;
+  pixelCode: string;
+}) {
+  return requestPost("/catalog/eventsource/bind/", accessToken, {
+    advertiser_id: input.advertiserId,
+    bc_id: input.businessCenterId,
+    catalog_id: input.catalogId,
+    pixel_code: input.pixelCode,
+  });
 }
 
 /**
