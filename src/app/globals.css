@@ -278,7 +278,7 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .console-tab { border-radius: .35rem; padding: .5rem .65rem; color: #9ba4b1; font-size: .7rem; font-weight: 900; transition: background .14s ease, color .14s ease; }
 .console-tab:hover { background: rgba(255,255,255,.055); color: #eef2f5; }
 .console-tab--active { background: #323944; color: #f3f5f7; }
-.console-log { height: clamp(136px, 22dvh, 208px); scrollbar-color: rgba(126,198,255,.34) transparent; }
+.console-log { height: clamp(118px, 18dvh, 172px); scrollbar-color: rgba(126,198,255,.34) transparent; }
 .console-orb { width: 20px; height: 20px; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; animation: console-spin 1s linear infinite; }
 @keyframes console-spin { to { transform: rotate(360deg); } }
 .console-close { min-width: 116px; border-radius: .5rem; background: linear-gradient(135deg,#ffe49a,#ffbe10); padding: .75rem 1.1rem; color: #161307; font-weight: 900; transition: .16s ease; }
@@ -290,10 +290,20 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .console-completion-metrics span { min-width: 0; border-radius: .4rem; background: rgba(3,27,31,.34); padding: .55rem .6rem; color: rgba(209,250,229,.72); font-size: .68rem; font-weight: 800; text-align: center; }
 .console-completion-metrics b { display: block; margin-bottom: .1rem; color: #d1fae5; font-size: 1.05rem; }
 .console-log-id { display: inline-block; margin-left: .5rem; border: 1px solid rgba(125,211,252,.18); border-radius: .25rem; padding: 0 .35rem; color: rgba(186,230,253,.75); font-size: .62rem; line-height: 1.35rem; vertical-align: middle; }
+.console-summary { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .65rem .8rem; border: 1px solid rgba(125,211,252,.12); border-radius: .55rem; background: rgba(7,16,24,.34); padding: .7rem .75rem; }
+.console-summary__result { min-width: 0; }
+.console-summary__status { align-self: center; border: 1px solid rgba(243,206,98,.22); border-radius: 999px; background: rgba(243,206,98,.08); padding: .28rem .5rem; color: #f3ce62; font-size: .62rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.console-summary__status--complete { border-color: rgba(110,231,183,.22); background: rgba(16,185,129,.08); color: #6ee7b7; }
+.console-summary__status--failed { border-color: rgba(252,165,165,.22); background: rgba(248,113,113,.08); color: #fca5a5; }
+.console-account-links { grid-column: 1 / -1; display: flex; min-width: 0; align-items: center; gap: .55rem; border-top: 1px solid rgba(255,255,255,.06); padding-top: .55rem; }
+.console-account-links > span { flex: 0 0 auto; color: #8994a4; font-size: .6rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.console-account-links > div { display: flex; min-width: 0; flex-wrap: wrap; gap: .35rem; }
+.console-account-link { display: inline-flex; max-width: min(100%, 260px); align-items: center; gap: .35rem; border: 1px solid rgba(125,211,252,.18); border-radius: .3rem; background: rgba(22,35,52,.72); padding: .3rem .45rem; color: #7dd3fc; font-size: .66rem; font-weight: 800; transition: .15s ease; }
+.console-account-link:hover { border-color: rgba(125,211,252,.52); background: rgba(24,54,76,.72); }
 @media (max-width: 1180px) { .asgard-controller-section { min-height: 244px; margin-bottom: 22px; } .asgard-controller { width: clamp(280px, 31vw, 340px); } }
 @media (max-width: 900px) { .asgard-controller-section { min-height: 206px; margin-bottom: 20px; } .asgard-controller { width: clamp(230px, 36vw, 280px); } }
 @media (min-width: 1280px) { .rocket-section { padding: var(--thor-card-padding); } }
-@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller-section { min-height: 164px; margin-bottom: 16px; } .asgard-controller { width: clamp(170px, 56vw, 220px); } .structure-metric { min-height: 100px; padding: .7rem; } .structure-metric > span:first-child { margin-bottom: .45rem; font-size: 9px; } .structure-metric input { font-size: 1.2rem; } .structure-metric--amount input.metric-value--medium { font-size: 1rem; } .structure-metric--amount input.metric-value--long { font-size: .82rem; } .metric-input-shell { height: 44px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } .console-modal { max-height: calc(100dvh - 1rem); border-radius: .65rem; } .console-modal__body { padding: .85rem; } .console-log { height: clamp(124px, 19dvh, 170px); } .console-completion-card { grid-template-columns: 1fr; } .console-sound-replay { justify-self: start; } }
+@media (max-width: 760px) { .structure-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .asgard-controller-section { min-height: 164px; margin-bottom: 16px; } .asgard-controller { width: clamp(170px, 56vw, 220px); } .structure-metric { min-height: 100px; padding: .7rem; } .structure-metric > span:first-child { margin-bottom: .45rem; font-size: 9px; } .structure-metric input { font-size: 1.2rem; } .structure-metric--amount input.metric-value--medium { font-size: 1rem; } .structure-metric--amount input.metric-value--long { font-size: .82rem; } .metric-input-shell { height: 44px; } .rocket-layout .px-6 { padding-left: 1rem; padding-right: 1rem; } .console-modal { max-height: calc(100dvh - 1rem); border-radius: .65rem; } .console-modal__body { padding: .85rem; } .console-log { height: clamp(110px, 16dvh, 144px); } .console-account-links { align-items: flex-start; flex-direction: column; gap: .35rem; } .console-completion-card { grid-template-columns: 1fr; } .console-sound-replay { justify-self: start; } }
 @media (prefers-reduced-motion: reduce) { .thor-crest, .console-orb, .asgard-controller *, .asgard-controller--complete .asgard-base { animation: none !important; transition: none !important; } .asgard-core { transform: translate(-50%, -50%) !important; will-change: auto; } }
 
 @media (prefers-reduced-motion: reduce) { .journey-active, .journey-energy-link__pulse { animation: none !important; } .journey-energy-link__pulse { opacity: 0 !important; } }

@@ -4723,33 +4723,36 @@ function LaunchConsole({
             ))}
             {!visibleLogs.length && <p className="py-10 text-center text-zinc-500">{submitting ? "Aguardando o primeiro retorno do TikTok…" : "Nenhum evento de execução."}</p>}
           </div>
-          <div className="mt-4 border-t border-white/[.08] pt-4">
-            <p className="text-sm font-black">
-              Resumo: <span className="text-sky-300">{execution?.created ? `${execution.created.campaigns} campanha(s), ${execution.created.adgroups} grupo(s) e ${execution.created.ads} anúncio(s)` : "aguardando confirmação"}</span> · {" "}
-              <span className={execution?.status === "failed" ? "text-red-300" : execution?.status === "completed" ? "text-emerald-300" : "text-[#f3ce62]"}>
-                {execution?.status === "completed" ? "confirmado pelo TikTok" : execution?.status === "failed" ? "interrompido com erro" : "executando"}
-              </span>
-            </p>
-            {execution?.progress && <p className="mt-1 text-[11px] font-bold text-zinc-400">{execution.progress.current}/{execution.progress.total} ações concluídas</p>}
-            <p className="mt-2 text-[10px] leading-4 text-zinc-500">
-              A publicação nunca deve abrir tarefas em paralelo: campanha → grupos → anúncios, depois a próxima campanha e a próxima conta.
-            </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {accounts.map((account) => (
-                <a
-                  key={account.id}
-                  href={advertiserUrl(account.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex min-w-0 items-center justify-between rounded-md border border-sky-300/20 bg-[#162334] px-3 py-2 text-xs font-bold text-sky-300 hover:border-sky-300/50"
-                >
-                  <span className="truncate">{account.name}</span>
-                  <ExternalLink size={14} />
-                </a>
-              ))}
+          <section className="console-summary mt-3" aria-label="Resumo da publicação">
+            <div className="console-summary__result">
+              <p className="text-[10px] font-black uppercase tracking-[.09em] text-zinc-500">Resultado</p>
+              <p className="mt-0.5 text-xs font-black text-sky-300">
+                {execution?.created ? `${execution.created.campaigns} campanhas · ${execution.created.adgroups} grupos · ${execution.created.ads} anúncios` : "Aguardando confirmação"}
+              </p>
+              {execution?.progress && <p className="mt-0.5 text-[10px] font-bold text-zinc-400">{execution.progress.current}/{execution.progress.total} ações concluídas</p>}
             </div>
-          </div>
-        </div>
+            <span className={`console-summary__status ${execution?.status === "failed" ? "console-summary__status--failed" : execution?.status === "completed" ? "console-summary__status--complete" : ""}`}>
+              {execution?.status === "completed" ? "Confirmado" : execution?.status === "failed" ? "Interrompido" : "Executando"}
+            </span>
+            <div className="console-account-links">
+              <span>Contas selecionadas</span>
+              <div>
+                {accounts.map((account) => (
+                  <a
+                    key={account.id}
+                    href={advertiserUrl(account.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Abrir ${account.name} no TikTok Ads Manager`}
+                    className="console-account-link"
+                  >
+                    <span className="truncate">{account.name}</span>
+                    <ExternalLink size={12} />
+                  </a>
+                ))}
+              </div>
+            </div>
+          </section>
         <div className="flex justify-center border-t border-white/[.08] px-5 py-4">
           <button type="button" onClick={onClose} className="console-close">
             Fechar
