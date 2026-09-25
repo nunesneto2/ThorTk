@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Square,
   Timer,
   Trash2,
   Play,
@@ -300,6 +301,7 @@ export default function Home() {
   const [launchDelay, setLaunchDelay] = useState(5);
   const [launchSubmitting, setLaunchSubmitting] = useState(false);
   const [launchExecution, setLaunchExecution] = useState<LaunchExecution | null>(null);
+  const launchAbortRef = useRef<AbortController | null>(null);
   const [apiCampaigns, setApiCampaigns] = useState<ApiCampaign[]>([]);
   const [apiCampaignsLoading, setApiCampaignsLoading] = useState(false);
   const [campaignAction, setCampaignAction] = useState<CampaignAction | null>(null);
@@ -431,6 +433,7 @@ export default function Home() {
       const response = await fetch("/api/tiktok/campaigns", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ action: campaignAction, advertiser_ids: selectedAdvertiserIds }),
       });
       const payload = (await response.json().catch(() => null)) as {
@@ -504,6 +507,8 @@ export default function Home() {
   );
   const startPublication = useCallback(async () => {
     if (!ready || launchSubmitting) return;
+    const controller = new AbortController();
+    launchAbortRef.current = controller;
     setLaunchSubmitting(true);
     let liveExecution: LaunchExecution = { status: "running", logs: [] };
     setLaunchExecution(liveExecution);
@@ -622,27 +627,35 @@ export default function Home() {
       if (!terminal) throw new Error("A conexão terminou antes do TikTok confirmar o resultado da publicação.");
       if (liveExecution.status === "completed") await loadApiCampaigns(selectedAdvertiserIds);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Não foi possível iniciar a publicação.";
+      const stoppedByOperator = controller.signal.aborted;
+      const message = stoppedByOperator
+        ? "Publicação interrompida pelo operador. O que já foi criado permanece pausado; nenhuma nova etapa será iniciada."
+        : error instanceof Error ? error.message : "Não foi possível iniciar a publicação.";
       liveExecution = {
         ...liveExecution,
         status: "failed",
         error: message,
-        logs: liveExecution.logs.length
-          ? liveExecution.logs
-          : [{
-              level: "error",
-              stage: "preflight",
-              status: "failed",
-              message,
-              timestamp: new Date().toISOString(),
-            }],
+        logs: [...liveExecution.logs, {
+          level: "error",
+          stage: "preflight",
+          status: "failed",
+          message,
+          timestamp: new Date().toISOString(),
+        }],
       };
       setLaunchExecution(liveExecution);
       setNotice({ tone: "error", text: message });
     } finally {
+      if (launchAbortRef.current === controller) launchAbortRef.current = null;
       setLaunchSubmitting(false);
     }
   }, [adText, ads, ages, allowComments, allowVideoDownloads, bcId, budget, campaignName, campaigns, catalogId, clickWindow, counting, country, cpa, cpaBidAmount, cta, groups, identityByAdvertiser, language, launchDelay, launchSubmitting, loadApiCampaigns, operatingSystem, pixelByAdvertiser, ready, selectedAdvertiserIds, viewWindow]);
+  const stopPublication = useCallback(() => {
+    const controller = launchAbortRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setNotice({ tone: "warning", text: "Interrompendo a publicação após a etapa atual…" });
+    controller.abort();
+  }, []);
   const warnings = overview.warnings.concat(details.warnings);
   const filteredAdvertisers = overview.advertisers
     .filter((item) =>
@@ -1331,6 +1344,7 @@ export default function Home() {
           accounts={selectedLaunchAdvertisers}
           execution={launchExecution}
           submitting={launchSubmitting}
+          onStop={stopPublication}
           onClose={() => setShowConsole(false)}
         />
       )}
@@ -4440,11 +4454,13 @@ function LaunchConsole({
   accounts,
   execution,
   submitting,
+  onStop,
   onClose,
 }: {
   accounts: Choice[];
   execution: LaunchExecution | null;
   submitting: boolean;
+  onStop: () => void;
   onClose: () => void;
 }) {
   type LogTone = "queue" | "info" | "success" | "error";
@@ -4612,7 +4628,10 @@ function LaunchConsole({
       <div role="dialog" aria-modal="true" aria-label="Execução de publicação" className="console-modal console-modal--queue">
         <div className="flex items-center justify-between gap-4 border-b border-white/[.08] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="console-orb" />
+            <span className={`console-orb ${execution?.status === "completed" ? "console-orb--complete" : execution?.status === "failed" ? "console-orb--failed" : ""}`}>
+              {execution?.status === "completed" && <CircleCheck size={14} />}
+              {execution?.status === "failed" && <CircleAlert size={14} />}
+            </span>
             <div>
               <h2 className="text-lg font-black">
                 {submitting ? "Publicando no TikTok" : execution?.status === "completed" ? "Publicação concluída" : execution?.status === "failed" ? "Publicação interrompida" : "Execução de publicação"}
@@ -4623,6 +4642,16 @@ function LaunchConsole({
             </div>
           </div>
           <div className="flex gap-2">
+            {submitting && (
+              <button
+                type="button"
+                onClick={onStop}
+                className="console-stop"
+                title="Parar as próximas etapas da publicação"
+              >
+                <Square size={10} fill="currentColor" /> Parar
+              </button>
+            )}
             <span className="rounded bg-emerald-400/10 px-2 py-1 text-[10px] font-black text-emerald-300">
               {countFor("success")} sucesso
             </span>
@@ -4679,11 +4708,6 @@ function LaunchConsole({
               <button type="button" onClick={playSuccessSound} className="console-sound-replay" title="Ouvir confirmação novamente">
                 <Volume2 size={15} /> Ouvir
               </button>
-              <div className="console-completion-metrics">
-                <span><b>{execution.created?.campaigns ?? 0}</b> campanha{execution.created?.campaigns === 1 ? "" : "s"}</span>
-                <span><b>{execution.created?.adgroups ?? 0}</b> conjunto{execution.created?.adgroups === 1 ? "" : "s"}</span>
-                <span><b>{execution.created?.ads ?? 0}</b> anúncio{execution.created?.ads === 1 ? "" : "s"}</span>
-              </div>
             </section>
           )}
           <label className="relative mt-4 block">
@@ -4692,7 +4716,7 @@ function LaunchConsole({
               size={14}
             />
             <input
-              className="rocket-input h-9 pl-9 text-xs"
+              className="console-log-search rocket-input h-9 text-xs"
               placeholder="Buscar nos logs..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}

@@ -189,8 +189,19 @@ export async function POST(request: NextRequest) {
     const created = { campaigns: 0, adgroups: 0, ads: 0 };
     let completedOperations = 0;
     let totalOperations = 0;
+    let stopRequested = request.signal.aborted;
+    request.signal.addEventListener("abort", () => {
+      stopRequested = true;
+    }, { once: true });
+
+    const assertLaunchActive = () => {
+      if (stopRequested || request.signal.aborted) {
+        throw new Error("A publicação foi interrompida antes de iniciar uma nova etapa.");
+      }
+    };
 
     const emit = async (event: "log" | "progress" | "completed" | "failed", payload: unknown) => {
+      if (stopRequested) return;
       await writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
     };
     const log = async (
@@ -223,6 +234,7 @@ export async function POST(request: NextRequest) {
     };
 
     try {
+    assertLaunchActive();
     const advertiserIds = cleanIds(body?.advertiser_ids);
     const catalogId = body?.catalog_id?.trim() ?? "";
     const businessCenterId = body?.business_center_id?.trim() ?? "";
@@ -334,6 +346,7 @@ export async function POST(request: NextRequest) {
     }
 
     for (const advertiserId of advertiserIds) {
+      assertLaunchActive();
       const advertiser = overview.advertisers.find((item) => item.id === advertiserId);
       if (advertiser?.businessCenterId && advertiser.businessCenterId !== businessCenterId) {
         throw new Error(`A conta ${advertiserId} pertence ao Business Center ${advertiser.businessCenterId}, mas o catálogo selecionado pertence ao BC ${businessCenterId}. Selecione conta e catálogo do mesmo BC.`);
@@ -418,6 +431,7 @@ export async function POST(request: NextRequest) {
     );
 
     for (const advertiserId of advertiserIds) {
+      assertLaunchActive();
       const pixelId = pixelIds.get(advertiserId);
       if (!pixelId) throw new Error(`ID do pixel não encontrado para a conta ${advertiserId}.`);
       const optimizationEvent = pixelOptimizationEvents.get(advertiserId);
@@ -426,6 +440,7 @@ export async function POST(request: NextRequest) {
       const identityType = identityTypes.get(advertiserId);
 
       for (let campaignIndex = 0; campaignIndex < campaignCount; campaignIndex += 1) {
+        assertLaunchActive();
         const suffix = campaignCount > 1 ? ` ${String(campaignIndex + 1).padStart(2, "0")}` : "";
         const requestedCampaignLabel = `${campaignName}${suffix}`;
         const campaignLabel = uniqueCampaignName(
@@ -462,6 +477,7 @@ export async function POST(request: NextRequest) {
         const adgroupIds: string[] = [];
         const adIds: string[] = [];
         for (let groupIndex = 0; groupIndex < groupCount; groupIndex += 1) {
+          assertLaunchActive();
           const groupLabel = `${campaignLabel} · Grupo ${String(groupIndex + 1).padStart(2, "0")}`;
           await log(
             "info",
@@ -553,6 +569,7 @@ export async function POST(request: NextRequest) {
           await progress();
 
           for (let adIndex = 0; adIndex < adCount; adIndex += 1) {
+            assertLaunchActive();
             await log("info", "ad", "started", `Montando o anúncio ${adIndex + 1}/${adCount} do conjunto ${adgroupId} com os produtos do catálogo.`);
             const adResponse = await createAd(token, {
               advertiser_id: advertiserId,
@@ -607,6 +624,7 @@ export async function POST(request: NextRequest) {
 
         // Activate only a complete campaign tree. A validation failure above
         // leaves the campaign paused and immediately stops the operation.
+        assertLaunchActive();
         await log("info", "activation", "started", `Tudo foi criado. Ativando campanha, conjuntos e anúncios da estrutura ${campaignId}.`);
         if (adIds.length) await updateAdStatus(token, advertiserId, adIds, "ENABLE");
         if (adgroupIds.length) await updateAdgroupStatus(token, advertiserId, adgroupIds, "ENABLE");
@@ -627,7 +645,7 @@ export async function POST(request: NextRequest) {
     await log("error", currentStage, "failed", message);
     await emit("failed", { status: "failed", created, logs, error: message });
   } finally {
-    await writer.close();
+    await writer.close().catch(() => undefined);
   }
   })();
 

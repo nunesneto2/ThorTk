@@ -279,7 +279,12 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 .console-tab:hover { background: rgba(255,255,255,.055); color: #eef2f5; }
 .console-tab--active { background: #323944; color: #f3f5f7; }
 .console-log { height: clamp(118px, 18dvh, 172px); scrollbar-color: rgba(126,198,255,.34) transparent; }
-.console-orb { width: 20px; height: 20px; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; animation: console-spin 1s linear infinite; }
+.console-log-search { padding-left: 2.7rem !important; }
+.console-stop { display: inline-flex; height: 26px; align-items: center; gap: .32rem; border: 1px solid rgba(252,165,165,.24); border-radius: .35rem; background: rgba(127,29,29,.14); padding: 0 .5rem; color: #fca5a5; font-size: .62rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; transition: .15s ease; }
+.console-stop:hover { border-color: rgba(252,165,165,.52); background: rgba(127,29,29,.28); color: #fee2e2; }
+.console-orb { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 3px solid rgba(126,198,255,.18); border-top-color: #7ec6ff; border-radius: 50%; color: #7ec6ff; animation: console-spin 1s linear infinite; }
+.console-orb--complete { border-color: rgba(110,231,183,.34); background: rgba(16,185,129,.1); color: #6ee7b7; animation: none; }
+.console-orb--failed { border-color: rgba(252,165,165,.34); background: rgba(248,113,113,.1); color: #fca5a5; animation: none; }
 @keyframes console-spin { to { transform: rotate(360deg); } }
 .console-close { min-width: 116px; border-radius: .5rem; background: linear-gradient(135deg,#ffe49a,#ffbe10); padding: .75rem 1.1rem; color: #161307; font-weight: 900; transition: .16s ease; }
 .console-completion-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .8rem 1rem; border: 1px solid rgba(52,211,153,.3); border-radius: .7rem; background: linear-gradient(135deg,rgba(5,76,59,.48),rgba(14,40,49,.72)); padding: 1rem; box-shadow: inset 0 1px rgba(255,255,255,.04); }
