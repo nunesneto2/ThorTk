@@ -307,9 +307,9 @@ select.rocket-input option, .structure-metric option { background: #12161a; colo
 
 /* ThorTk authentication: Bifrost access gate. */
 .auth-shell { position: relative; min-height: 100svh; overflow: hidden; isolation: isolate; background: #03080d; color: #f2f7fb; }
-.auth-shell__scene { position: absolute; inset: 0; z-index: -2; background: url('/thortk-auth-bifrost.webp') center center / cover no-repeat; }
-.auth-shell__veil { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(2,7,12,.88) 0%, rgba(2,8,14,.64) 40%, rgba(2,7,12,.5) 100%), radial-gradient(circle at 29% 45%, rgba(40,144,223,.16), transparent 25%), linear-gradient(0deg, rgba(2,7,12,.55), transparent 45%); }
-.auth-shell__layout { position: relative; display: grid; min-height: 100svh; max-width: 1440px; margin: 0 auto; align-items: center; gap: clamp(2rem, 7vw, 8rem); padding: clamp(2rem, 5vw, 5rem) clamp(1.25rem, 6vw, 6.5rem); grid-template-columns: minmax(0,1fr) minmax(360px,460px); }
+.auth-shell__scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: url('/thortk-auth-bifrost.webp') center center / cover no-repeat; }
+.auth-shell__veil { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, rgba(2,7,12,.88) 0%, rgba(2,8,14,.64) 40%, rgba(2,7,12,.5) 100%), radial-gradient(circle at 29% 45%, rgba(40,144,223,.16), transparent 25%), linear-gradient(0deg, rgba(2,7,12,.55), transparent 45%); }
+.auth-shell__layout { position: relative; z-index: 2; display: grid; min-height: 100svh; max-width: 1440px; margin: 0 auto; align-items: center; gap: clamp(2rem, 7vw, 8rem); padding: clamp(2rem, 5vw, 5rem) clamp(1.25rem, 6vw, 6.5rem); grid-template-columns: minmax(0,1fr) minmax(360px,460px); }
 .auth-hero { max-width: 640px; text-shadow: 0 3px 24px rgba(0,0,0,.55); }
 .auth-hero__eyebrow { display: inline-flex; align-items: center; gap: .6rem; color: #bfe9ff; font-size: .68rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
 .auth-hero__protocol { margin: 2.1rem 0 .8rem; color: rgba(186,215,232,.67); font-size: .66rem; font-weight: 800; letter-spacing: .14em; }
