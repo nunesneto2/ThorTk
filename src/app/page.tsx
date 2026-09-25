@@ -629,7 +629,7 @@ export default function Home() {
     } catch (error) {
       const stoppedByOperator = controller.signal.aborted;
       const message = stoppedByOperator
-        ? "Publicação interrompida pelo operador. O que já foi criado permanece pausado; nenhuma nova etapa será iniciada."
+        ? "Publicação interrompida pelo operador. Nenhuma nova etapa será iniciada; estruturas incompletas permanecem pausadas."
         : error instanceof Error ? error.message : "Não foi possível iniciar a publicação.";
       liveExecution = {
         ...liveExecution,
