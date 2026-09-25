@@ -1072,6 +1072,7 @@ export default function Home() {
         financeLoading={financeLoading}
         businessCenterName={selectedBc?.name}
         onRefresh={loadOverview}
+        onReconnect={() => router.push("/api/tiktok/connect")}
         onPreset={applyPreset}
       />
       <div className="relative mx-auto flex min-h-[calc(100dvh-60px)] max-w-[1440px] flex-col px-4 pb-4 pt-2 sm:px-6 sm:pb-5 sm:pt-3 xl:px-8">
@@ -1360,6 +1361,7 @@ function RocketHeader({
   financeLoading,
   businessCenterName,
   onRefresh,
+  onReconnect,
   onPreset,
 }: {
   operatorName: string;
@@ -1369,6 +1371,7 @@ function RocketHeader({
   financeLoading: boolean;
   businessCenterName?: string;
   onRefresh: () => void;
+  onReconnect: () => void;
   onPreset: () => void;
 }) {
   return (
@@ -1398,6 +1401,15 @@ function RocketHeader({
             text={financeLoading ? "SALDO…" : `SALDO ${formatMoney(finance?.balance ?? null, finance?.currency)}`}
             title="Saldo disponível retornado pelo TikTok para esta Business Center"
           />
+          <button
+            type="button"
+            onClick={onReconnect}
+            className="header-chip hidden text-sky-300 xl:flex"
+            title="Reconectar o TikTok e renovar a autorização"
+          >
+            <PlugZap size={13} />
+            RECONECTAR
+          </button>
           <button
             type="button"
             onClick={onPreset}

@@ -1,4 +1,5 @@
 const API_BASE = "https://business-api.tiktok.com/open_api/v1.3";
+const TIKTOK_ADVERTISER_BATCH_SIZE = 100;
 
 type TikTokEnvelope = {
   code?: number | string;
@@ -236,6 +237,14 @@ function result<T>(value: Promise<T>, label: string) {
   return value.then((data) => ({ data, warning: null as string | null })).catch((error: unknown) => ({ data: null, warning: `${label}: ${error instanceof Error ? error.message : "indisponível"}` }));
 }
 
+function advertiserBatches(ids: string[]) {
+  const batches: string[][] = [];
+  for (let index = 0; index < ids.length; index += TIKTOK_ADVERTISER_BATCH_SIZE) {
+    batches.push(ids.slice(index, index + TIKTOK_ADVERTISER_BATCH_SIZE));
+  }
+  return batches;
+}
+
 export async function loadOverview(accessToken: string): Promise<AssetOverview> {
   const appId = process.env.TIKTOK_APP_ID?.trim();
   const secret = process.env.TIKTOK_APP_SECRET?.trim();
@@ -253,11 +262,19 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   // operating status. Fetch the current advertiser records before exposing
   // filters: treating a missing status as active caused suspended accounts to
   // appear in "Podem subir".
-  const advertiserInfo = authorizedAdvertisers.length ? await result(request("/advertiser/info/", accessToken, {
-    advertiser_ids: JSON.stringify(authorizedAdvertisers.map((item) => item.id)),
-    fields: JSON.stringify(["advertiser_id", "name", "currency", "status", "owner_bc_id"]),
-  }), "Status das contas") : { data: null, warning: null as string | null };
-  const recordsById = new Map(normalize(dataItems(advertiserInfo.data ?? undefined), "advertiser").map((item) => [item.id, item]));
+  const advertiserInfo = await Promise.all(
+    advertiserBatches(authorizedAdvertisers.map((item) => item.id)).map((advertiserIds) =>
+      result(request("/advertiser/info/", accessToken, {
+        advertiser_ids: JSON.stringify(advertiserIds),
+        fields: JSON.stringify(["advertiser_id", "name", "currency", "status", "owner_bc_id"]),
+      }), "Status das contas"),
+    ),
+  );
+  const recordsById = new Map(
+    advertiserInfo.flatMap(({ data }) =>
+      normalize(dataItems(data ?? undefined), "advertiser"),
+    ).map((item) => [item.id, item]),
+  );
   const advertiserChoices = authorizedAdvertisers.map((item) => {
     const current = recordsById.get(item.id);
     return current
@@ -278,19 +295,30 @@ export async function loadOverview(accessToken: string): Promise<AssetOverview> 
   if (!businessCenters.length) {
     businessCenters = businessCentersFromAdvertisers(advertiserItems);
     if (!businessCenters.length && advertiserChoices.length) {
-      const owners = await result(request("/advertiser/info/", accessToken, {
-        advertiser_ids: JSON.stringify(advertiserChoices.map((item) => item.id)),
-        fields: JSON.stringify(["advertiser_id", "name", "owner_bc_id"]),
-      }), "Business Centers das contas");
-      businessCenters = businessCentersFromAdvertisers(dataItems(owners.data ?? undefined));
-      derivedWarning = owners.warning;
+      const owners = await Promise.all(
+        advertiserBatches(advertiserChoices.map((item) => item.id)).map((advertiserIds) =>
+          result(request("/advertiser/info/", accessToken, {
+            advertiser_ids: JSON.stringify(advertiserIds),
+            fields: JSON.stringify(["advertiser_id", "name", "owner_bc_id"]),
+          }), "Business Centers das contas"),
+        ),
+      );
+      businessCenters = businessCentersFromAdvertisers(
+        owners.flatMap(({ data }) => dataItems(data ?? undefined)),
+      );
+      derivedWarning = owners.map(({ warning }) => warning).filter(Boolean).join(" · ") || null;
     }
   }
 
   return {
     businessCenters,
     advertisers: advertiserChoices,
-    warnings: [bc.warning, advertisers.warning, advertiserInfo.warning, derivedWarning].filter((warning): warning is string => Boolean(warning)),
+    warnings: [
+      bc.warning,
+      advertisers.warning,
+      ...advertiserInfo.map(({ warning }) => warning),
+      derivedWarning,
+    ].filter((warning): warning is string => Boolean(warning)),
   };
 }
 
