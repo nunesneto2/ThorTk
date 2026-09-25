@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 type Choice = {
   id: string;
@@ -226,6 +227,7 @@ function identityNameVariants(base: string, count: number, prefix = "") {
 
 export default function Home() {
   const router = useRouter();
+  const [operatorName, setOperatorName] = useState("OPERADOR");
   const [step, setStep] = useState(0);
   const [overview, setOverview] = useState<Overview>({
     connected: false,
@@ -317,6 +319,35 @@ export default function Home() {
   const [assetProgress, setAssetProgress] = useState<AssetProgress | null>(
     null,
   );
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = createClient();
+
+    const syncOperator = (user: { user_metadata?: Record<string, unknown> } | null) => {
+      if (!mounted) return;
+      if (!user) {
+        router.replace("/auth");
+        return;
+      }
+      const candidate = user.user_metadata?.operator_name;
+      setOperatorName(
+        typeof candidate === "string" && candidate.trim()
+          ? candidate.trim().slice(0, 24)
+          : "OPERADOR",
+      );
+    };
+
+    void supabase.auth.getUser().then(({ data }) => syncOperator(data.user));
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => syncOperator(session?.user ?? null),
+    );
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!notice || notice.tone === "error") return;
@@ -1034,7 +1065,7 @@ export default function Home() {
         className="thor-scanlines pointer-events-none fixed inset-0"
       />
       <RocketHeader
-        connected={overview.connected}
+        operatorName={operatorName}
         bcs={connectedBusinessCenters.length}
         loading={loading === "overview"}
         finance={overview.connected && bcId ? finance : null}
@@ -1322,7 +1353,7 @@ export default function Home() {
 }
 
 function RocketHeader({
-  connected,
+  operatorName,
   bcs,
   loading,
   finance,
@@ -1331,7 +1362,7 @@ function RocketHeader({
   onRefresh,
   onPreset,
 }: {
-  connected: boolean;
+  operatorName: string;
   bcs: number;
   loading: boolean;
   finance: BusinessCenterFinance | null;
@@ -1376,14 +1407,22 @@ function RocketHeader({
             <KeyRound size={13} />
             PRESETS
           </button>
+          <span
+            className="header-chip max-w-[220px] gap-1.5 border-[#d8b56b]/35 text-[#f1cb79]"
+            title={`Operador conectado: ${operatorName}`}
+          >
+            <ShieldCheck size={14} />
+            <span className="text-[10px]">OPERADOR</span>
+            <span className="truncate text-white">{operatorName}</span>
+          </span>
           <button
             type="button"
             onClick={onRefresh}
-            className="header-chip text-[#d8b56b]"
-            title="Atualizar ativos"
+            className="header-chip hidden px-2 text-[#d8b56b] lg:flex"
+            title="Atualizar dados do TikTok"
+            aria-label="Atualizar dados do TikTok"
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            {connected ? "CANAL ATIVO" : "CONECTAR"}
           </button>
         </div>
       </div>

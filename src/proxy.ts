@@ -1,32 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-const primaryDomain = "tikscalepro.online";
-const wwwDomain = "www.tikscalepro.online";
+export async function proxy(request: NextRequest) {
+  let response = NextResponse.next({ request });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-export function proxy(request: NextRequest) {
-  const hostname = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
-
-  if (hostname !== primaryDomain && hostname !== wwwDomain) return NextResponse.next();
-
-  const url = request.nextUrl.clone();
-  if (url.pathname === "/") {
-    url.pathname = "/institucional";
-    return NextResponse.rewrite(url);
+  if (!url || !key) {
+    return NextResponse.redirect(new URL("/auth", request.url));
   }
 
-  if (url.pathname === "/privacy") {
-    url.pathname = "/privacidade";
-    return NextResponse.rewrite(url);
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(values) {
+        values.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        values.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        );
+      },
+    },
+  });
+
+  const {
+    data: { claims },
+  } = await supabase.auth.getClaims();
+
+  if (!claims) {
+    const redirectUrl = new URL("/auth", request.url);
+    redirectUrl.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  if (url.pathname === "/terms") {
-    url.pathname = "/termos";
-    return NextResponse.rewrite(url);
-  }
-
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/"],
 };
