@@ -19,7 +19,12 @@ import {
 } from "@/lib/tiktok/assets";
 import { decryptToken } from "@/lib/tiktok/oauth";
 
-export const maxDuration = 60;
+// A catalog launch is deliberately sequential (campaign → ad group → ad) so
+// that a partially-created tree is never activated. A multi-account launch
+// therefore legitimately takes longer than Vercel's short 60-second default.
+// Keep the SSE connection alive for the whole operation instead of letting the
+// platform terminate it without a final `failed` event for the UI to render.
+export const maxDuration = 300;
 
 type LaunchLog = {
   level: "info" | "success" | "error";
