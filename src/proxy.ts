@@ -25,11 +25,9 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { claims },
-  } = await supabase.auth.getClaims();
+  const { data: claimsData } = await supabase.auth.getClaims();
 
-  if (!claims) {
+  if (!claimsData) {
     const redirectUrl = new URL("/auth", request.url);
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
