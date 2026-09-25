@@ -24,7 +24,9 @@ import { decryptToken } from "@/lib/tiktok/oauth";
 // therefore legitimately takes longer than Vercel's short 60-second default.
 // Keep the SSE connection alive for the whole operation instead of letting the
 // platform terminate it without a final `failed` event for the UI to render.
-export const maxDuration = 300;
+// Pro + Fluid Compute allows up to 800 seconds. This is reserved only for
+// the sequential launch stream; normal API routes retain their short runtime.
+export const maxDuration = 800;
 
 type LaunchLog = {
   level: "info" | "success" | "error";
