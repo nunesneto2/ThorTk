@@ -433,7 +433,6 @@ export default function Home() {
       const response = await fetch("/api/tiktok/campaigns", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        signal: controller.signal,
         body: JSON.stringify({ action: campaignAction, advertiser_ids: selectedAdvertiserIds }),
       });
       const payload = (await response.json().catch(() => null)) as {
@@ -522,6 +521,7 @@ export default function Home() {
       const response = await fetch("/api/tiktok/launch", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           advertiser_ids: selectedAdvertiserIds,
           business_center_id: bcId,
