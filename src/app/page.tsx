@@ -4753,6 +4753,7 @@ function LaunchConsole({
               </div>
             </div>
           </section>
+        </div>
         <div className="flex justify-center border-t border-white/[.08] px-5 py-4">
           <button type="button" onClick={onClose} className="console-close">
             Fechar
