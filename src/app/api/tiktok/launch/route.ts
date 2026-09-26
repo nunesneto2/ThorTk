@@ -578,38 +578,14 @@ export async function POST(request: NextRequest) {
                 ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
                 ad_text: body?.ad_text?.trim() || campaignName,
                 call_to_action: body?.cta || "LEARN_MORE",
-                catalog_id: catalogId,
                 identity_id: identityId,
                 identity_type: identityType ?? "CUSTOMIZED_USER",
                 ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-                // Catalog Video is the Rocket "Vídeo: catálogo" flow. The
-                // catalog supplies the product video/template; no uploaded
-                // generic video is required for this format.
-                product_specific_type: "ALL",
-                dynamic_format: "UNSET",
-                ad_format: "SINGLE_VIDEO",
-                vertical_video_strategy: "CATALOG_VIDEOS",
-                // Product link must be set on the catalog creative. SHOPPING_ADS
-                // tells TikTok to use the product_url from every catalog item
-                // (Rocket's manual flow has an empty product_link for this
-                // reason), rather than leaving Website type as Select.
-                shopping_ads_fallback_type: "SHOPPING_ADS",
-                // TikTok appends these parameters to each catalog product_url
-                // when SHOPPING_ADS is used. The campaign macro is resolved by
-                // TikTok only after the final campaign name (including any
-                // collision suffix) is known.
-                utm_params: [
-                  { key: "utm_source", value: "tiktok" },
-                  { key: "utm_medium", value: "paid_social" },
-                  { key: "utm_campaign", value: "__CAMPAIGN_NAME__" },
-                  { key: "tt_campaign_id", value: "__CAMPAIGN_ID__" },
-                  { key: "tt_adgroup", value: "__AID_NAME__" },
-                  { key: "tt_adgroup_id", value: "__AID__" },
-                  { key: "utm_content", value: "__CID_NAME__" },
-                  { key: "tt_ad_id", value: "__CID__" },
-                  { key: "tt_placement", value: "__PLACEMENT__" },
-                ],
-                dynamic_destination: "UNSET",
+                // The catalog, product source, and video format are defined
+                // at ad-group level. Supplying catalog-video-only fields here
+                // made TikTok reject the creative with "Incorrect source
+                // field" for otherwise valid accounts. Keep this request to
+                // the portable creative fields accepted by catalog ad groups.
                 operation_status: "DISABLE",
               }],
             });
