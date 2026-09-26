@@ -2,7 +2,6 @@
 
 import { ArrowLeft, ArrowRight, Compass, Loader2, Rocket, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -30,7 +29,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 }
 
 export default function AuthPage() {
-  const router = useRouter();
   const [identity, setIdentity] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [phase, setPhase] = useState<"idle" | "checking" | "creating" | "redirecting">("idle");
@@ -54,12 +52,20 @@ export default function AuthPage() {
     try {
       const supabase = createClient();
 
+      const openPanel = async () => {
+        // The browser client persists the session in cookies. Give that write
+        // one frame before a single full navigation so the first protected
+        // request sees the new token; router.replace + router.refresh caused
+        // two competing requests on the first operator login.
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        window.location.replace("/");
+      };
+
       // Reaproveita uma sessão já persistida sem criar outro usuário anônimo.
       const { data: existingSession } = await supabase.auth.getSession();
       if (existingSession.session) {
         setPhase("redirecting");
-        router.replace("/");
-        router.refresh();
+        await openPanel();
         return;
       }
 
@@ -73,8 +79,7 @@ export default function AuthPage() {
       if (!data.session) throw new Error("SESSION_NOT_CREATED");
 
       setPhase("redirecting");
-      router.replace("/");
-      router.refresh();
+      await openPanel();
     } catch (error) {
       setPhase("idle");
       setStatus("error");
