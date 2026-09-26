@@ -1,39 +1,25 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+function hasAuthCookie(request: NextRequest) {
+  // Supabase SSR stores the browser session in this cookie (or numbered
+  // chunks of it). The API routes still verify the JWT before returning data;
+  // this lightweight gateway only keeps an unsigned visitor out of the panel.
+  return request.cookies.getAll().some(({ name, value }) =>
+    /^sb-[a-z0-9]+-auth-token(?:\.\d+)?$/i.test(name) && Boolean(value),
+  );
+}
 
-  if (!url || !key) {
-    return NextResponse.redirect(new URL("/auth", request.url));
-  }
-
-  const supabase = createServerClient(url, key, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(values) {
-        values.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        values.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
-        );
-      },
-    },
-  });
-
-  const { data: claimsData } = await supabase.auth.getClaims();
-
-  if (!claimsData) {
+export function proxy(request: NextRequest) {
+  if (!hasAuthCookie(request)) {
     const redirectUrl = new URL("/auth", request.url);
     redirectUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  return response;
+  // Do not call auth.getClaims() here. On a brand-new session that makes the
+  // first panel navigation wait for remote JWT/JWKS validation; API handlers
+  // perform that validation before accessing any user data.
+  return NextResponse.next({ request });
 }
 
 export const config = {
