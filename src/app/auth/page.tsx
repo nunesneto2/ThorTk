@@ -6,34 +6,100 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+const AUTH_TIMEOUT_MS = 10_000;
 const cleanIdentity = (value: string) => value.replace(/\s+/g, " ").trim().slice(0, 48);
+
+class AuthTimeoutError extends Error {
+  constructor() {
+    super("AUTH_TIMEOUT");
+    this.name = "AuthTimeoutError";
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new AuthTimeoutError()), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
 
 export default function AuthPage() {
   const router = useRouter();
   const [identity, setIdentity] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [phase, setPhase] = useState<"idle" | "checking" | "creating" | "redirecting">("idle");
   const [message, setMessage] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (status === "loading") return;
+
     const operatorName = cleanIdentity(identity);
     if (operatorName.length < 2) {
       setStatus("error");
       setMessage("Informe uma identidade com pelo menos 2 caracteres.");
       return;
     }
+
     setStatus("loading");
+    setPhase("checking");
     setMessage("");
+
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInAnonymously({ options: { data: { operator_name: operatorName } } });
+
+      // Reaproveita uma sessão já persistida sem criar outro usuário anônimo.
+      const { data: existingSession } = await supabase.auth.getSession();
+      if (existingSession.session) {
+        setPhase("redirecting");
+        router.replace("/");
+        router.refresh();
+        return;
+      }
+
+      setPhase("creating");
+      const { data, error } = await withTimeout(
+        supabase.auth.signInAnonymously({ options: { data: { operator_name: operatorName } } }),
+        AUTH_TIMEOUT_MS,
+      );
+
       if (error) throw error;
-      router.push("/");
-    } catch {
+      if (!data.session) throw new Error("SESSION_NOT_CREATED");
+
+      setPhase("redirecting");
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      setPhase("idle");
       setStatus("error");
-      setMessage("Não foi possível iniciar a sessão. No Supabase, habilite Anonymous sign-ins em Authentication → Providers.");
+
+      if (error instanceof AuthTimeoutError) {
+        setMessage("A criação da sessão demorou mais de 10 segundos. Tente novamente; se persistir, verifique o serviço de autenticação do Supabase.");
+        return;
+      }
+
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : "";
+      if (errorMessage.includes("anonymous") || errorMessage.includes("provider")) {
+        setMessage("O acesso anônimo não está disponível no Supabase deste ambiente. Verifique Authentication → Providers → Anonymous Sign-Ins.");
+        return;
+      }
+
+      setMessage("Não foi possível iniciar a sessão. Tente novamente.");
     }
   }
+
+  const loadingLabel =
+    phase === "checking"
+      ? "Verificando sessão"
+      : phase === "redirecting"
+        ? "Abrindo painel"
+        : "Criando sessão";
 
   return (
     <main className="auth-shell">
@@ -68,7 +134,7 @@ export default function AuthPage() {
             </div>
             <button type="submit" disabled={status === "loading"} className="auth-submit">
               {status === "loading" ? <Loader2 className="animate-spin" size={18} /> : <Rocket size={18} />}
-              {status === "loading" ? "Iniciando sessão" : "Entrar no comando"}
+              {status === "loading" ? loadingLabel : status === "error" ? "Tentar novamente" : "Entrar no comando"}
               <ArrowRight size={18} />
             </button>
             {status === "error" && <p className="auth-error">{message}</p>}
