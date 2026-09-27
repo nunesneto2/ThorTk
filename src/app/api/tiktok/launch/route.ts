@@ -582,6 +582,8 @@ export async function POST(request: NextRequest) {
                 // creative itself. The incompatible video/source options stay
                 // intentionally omitted below.
                 catalog_id: catalogId,
+                // Required by TikTok for Product Sales catalog creatives.
+                product_specific_type: "ALL",
                 identity_id: identityId,
                 identity_type: identityType ?? "CUSTOMIZED_USER",
                 ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
