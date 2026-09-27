@@ -571,32 +571,60 @@ export async function POST(request: NextRequest) {
           for (let adIndex = 0; adIndex < adCount; adIndex += 1) {
             assertLaunchActive();
             await log("info", "ad", "started", `Montando o anúncio ${adIndex + 1}/${adCount} do conjunto ${adgroupId} com os produtos do catálogo.`);
-            const adResponse = await createAd(token, {
-              advertiser_id: advertiserId,
-              adgroup_id: adgroupId,
-              creatives: [{
-                ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
-                ad_text: body?.ad_text?.trim() || campaignName,
-                call_to_action: body?.cta || "LEARN_MORE",
-                // Catalog sales ads require the catalog identifier on the
-                // creative itself. The incompatible video/source options stay
-                // intentionally omitted below.
-                catalog_id: catalogId,
-                // Required by TikTok for Product Sales catalog creatives.
-                product_specific_type: "ALL",
-                // TikTok validates this on the creative, even when the
-                // ad-group already uses VIDEO shopping ads. This is the same
-                // SINGLE_VIDEO mode selected in RocketKT's working payload.
-                ad_format: "SINGLE_VIDEO",
-                identity_id: identityId,
-                identity_type: identityType ?? "CUSTOMIZED_USER",
-                ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-                // Keep catalog-video/source fields omitted. They are separate
-                // from ad_format and were the cause of the former
-                // "Incorrect source field" response.
-                operation_status: "DISABLE",
-              }],
-            });
+            const creative = {
+              ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
+              ad_text: body?.ad_text?.trim() || campaignName,
+              call_to_action: body?.cta || "LEARN_MORE",
+              // Catalog sales ads require the catalog identifier on the
+              // creative itself. The incompatible video/source options stay
+              // intentionally omitted below.
+              catalog_id: catalogId,
+              // Required by TikTok for Product Sales catalog creatives.
+              product_specific_type: "ALL",
+              // TikTok validates this on the creative, even when the
+              // ad-group already uses VIDEO shopping ads. This is the same
+              // SINGLE_VIDEO mode selected in the RocketKT working payload.
+              ad_format: "SINGLE_VIDEO",
+              identity_id: identityId,
+              identity_type: identityType ?? "CUSTOMIZED_USER",
+              ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
+              // Keep catalog-video/source fields omitted. They are separate
+              // from ad_format and were the cause of the former
+              // "Incorrect source field" response.
+              operation_status: "DISABLE",
+            };
+
+            let adResponse;
+            try {
+              adResponse = await createAd(token, {
+                advertiser_id: advertiserId,
+                adgroup_id: adgroupId,
+                creatives: [creative],
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "";
+              if (!/Unsupported image size/i.test(message)) throw error;
+
+              // The identity is already set on the ad group. Some accounts
+              // reject a legacy/custom avatar only when it is duplicated on
+              // the creative. Retry once with the ad-group identity inherited,
+              // while keeping the catalog and required video format intact.
+              await log(
+                "info",
+                "ad",
+                "started",
+                "TikTok recusou a imagem da Identity no criativo; repetindo com a Identity já configurada no conjunto.",
+              );
+              const inheritedIdentityCreative = { ...creative };
+              delete inheritedIdentityCreative.identity_id;
+              delete inheritedIdentityCreative.identity_type;
+              delete inheritedIdentityCreative.identity_authorized_bc_id;
+              adResponse = await createAd(token, {
+                advertiser_id: advertiserId,
+                adgroup_id: adgroupId,
+                creatives: [inheritedIdentityCreative],
+              });
+            }
             const adId = entityId(adResponse, ["ad_id", "id"]);
             if (!adId) throw new Error(`O TikTok não retornou o ID do anúncio do grupo ${adgroupId}.`);
             adIds.push(adId);
