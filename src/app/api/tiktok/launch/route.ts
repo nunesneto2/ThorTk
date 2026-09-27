@@ -584,14 +584,16 @@ export async function POST(request: NextRequest) {
                 catalog_id: catalogId,
                 // Required by TikTok for Product Sales catalog creatives.
                 product_specific_type: "ALL",
+                // TikTok validates this on the creative, even when the
+                // ad-group already uses VIDEO shopping ads. This is the same
+                // SINGLE_VIDEO mode selected in RocketKT's working payload.
+                ad_format: "SINGLE_VIDEO",
                 identity_id: identityId,
                 identity_type: identityType ?? "CUSTOMIZED_USER",
                 ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-                // The catalog, product source, and video format are defined
-                // at ad-group level. Supplying catalog-video-only fields here
-                // made TikTok reject the creative with "Incorrect source
-                // field" for otherwise valid accounts. Keep this request to
-                // the portable creative fields accepted by catalog ad groups.
+                // Keep catalog-video/source fields omitted. They are separate
+                // from ad_format and were the cause of the former
+                // "Incorrect source field" response.
                 operation_status: "DISABLE",
               }],
             });
