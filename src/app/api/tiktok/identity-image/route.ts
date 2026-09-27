@@ -48,21 +48,25 @@ export async function POST(request: NextRequest) {
     if (forbidden) return responseError("A conta " + forbidden + " não pertence à autorização atual do TikTok.", 403);
 
     const bytes = await file.arrayBuffer();
-    // TikTok identities require a square avatar. Normalize every upload on the
-    // server so the preview can use any source image while the API always
-    // receives a 512 × 512 PNG with a centered cover crop.
+    // Video Shopping Ads validate the Identity avatar again during ad creation.
+    // Keep it square, compact, and below the 50 KB profile-image limit instead
+    // of uploading the previous 512 px PNG, which was accepted by Identity
+    // creation but rejected later by /ad/create/.
     const avatar = await sharp(Buffer.from(bytes))
       .rotate()
-      .resize(512, 512, { fit: "cover", position: "centre" })
-      .png()
+      .resize(98, 98, { fit: "cover", position: "centre" })
+      .jpeg({ quality: 82, mozjpeg: true })
       .toBuffer();
+    if (avatar.byteLength > 50 * 1024) {
+      return responseError("A imagem da Identity ultrapassou 50 KB após a otimização. Escolha uma imagem mais simples.");
+    }
     const signature = createHash("md5").update(avatar).digest("hex");
     const uploaded = await Promise.allSettled(advertiserIds.map(async (advertiserId) => {
       const upload = new FormData();
       upload.append("advertiser_id", advertiserId);
       upload.append("upload_type", "UPLOAD_BY_FILE");
       upload.append("image_signature", signature);
-      upload.append("image_file", new Blob([avatar], { type: "image/png" }), "identity-512.png");
+      upload.append("image_file", new Blob([avatar], { type: "image/jpeg" }), "identity-98.jpg");
       const result = await fetch(TIKTOK_API + "/file/image/ad/upload/", {
         method: "POST",
         headers: { Accept: "application/json", "Access-Token": token },
