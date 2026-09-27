@@ -594,37 +594,11 @@ export async function POST(request: NextRequest) {
               operation_status: "DISABLE",
             };
 
-            let adResponse;
-            try {
-              adResponse = await createAd(token, {
-                advertiser_id: advertiserId,
-                adgroup_id: adgroupId,
-                creatives: [creative],
-              });
-            } catch (error) {
-              const message = error instanceof Error ? error.message : "";
-              if (!/Unsupported image size/i.test(message)) throw error;
-
-              // The identity is already set on the ad group. Some accounts
-              // reject a legacy/custom avatar only when it is duplicated on
-              // the creative. Retry once with the ad-group identity inherited,
-              // while keeping the catalog and required video format intact.
-              await log(
-                "info",
-                "ad",
-                "started",
-                "TikTok recusou a imagem da Identity no criativo; repetindo com a Identity já configurada no conjunto.",
-              );
-              const inheritedIdentityCreative: Record<string, unknown> = { ...creative };
-              delete inheritedIdentityCreative.identity_id;
-              delete inheritedIdentityCreative.identity_type;
-              delete inheritedIdentityCreative.identity_authorized_bc_id;
-              adResponse = await createAd(token, {
-                advertiser_id: advertiserId,
-                adgroup_id: adgroupId,
-                creatives: [inheritedIdentityCreative],
-              });
-            }
+            const adResponse = await createAd(token, {
+              advertiser_id: advertiserId,
+              adgroup_id: adgroupId,
+              creatives: [creative],
+            });
             const adId = entityId(adResponse, ["ad_id", "id"]);
             if (!adId) throw new Error(`O TikTok não retornou o ID do anúncio do grupo ${adgroupId}.`);
             adIds.push(adId);
@@ -653,7 +627,10 @@ export async function POST(request: NextRequest) {
       logs,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "O TikTok não confirmou a publicação.";
+    let message = error instanceof Error ? error.message : "O TikTok não confirmou a publicação.";
+    if (/Unsupported image size/i.test(message)) {
+      message = "A imagem da Identity selecionada é incompatível com Video Shopping Ads. Crie uma nova Identity na aba Contas usando a imagem novamente; o ThorTk agora a otimiza automaticamente para o padrão aceito pelo TikTok.";
+    }
     await log("error", currentStage, "failed", message);
     await emit("failed", { status: "failed", created, logs, error: message });
   } finally {
