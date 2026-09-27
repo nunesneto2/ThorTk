@@ -578,6 +578,10 @@ export async function POST(request: NextRequest) {
                 ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
                 ad_text: body?.ad_text?.trim() || campaignName,
                 call_to_action: body?.cta || "LEARN_MORE",
+                // Catalog sales ads require the catalog identifier on the
+                // creative itself. The incompatible video/source options stay
+                // intentionally omitted below.
+                catalog_id: catalogId,
                 identity_id: identityId,
                 identity_type: identityType ?? "CUSTOMIZED_USER",
                 ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
