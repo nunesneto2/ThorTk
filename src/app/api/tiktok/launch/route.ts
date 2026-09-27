@@ -615,7 +615,7 @@ export async function POST(request: NextRequest) {
                 "started",
                 "TikTok recusou a imagem da Identity no criativo; repetindo com a Identity já configurada no conjunto.",
               );
-              const inheritedIdentityCreative = { ...creative };
+              const inheritedIdentityCreative: Record<string, unknown> = { ...creative };
               delete inheritedIdentityCreative.identity_id;
               delete inheritedIdentityCreative.identity_type;
               delete inheritedIdentityCreative.identity_authorized_bc_id;
