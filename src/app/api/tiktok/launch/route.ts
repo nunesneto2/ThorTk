@@ -571,33 +571,38 @@ export async function POST(request: NextRequest) {
           for (let adIndex = 0; adIndex < adCount; adIndex += 1) {
             assertLaunchActive();
             await log("info", "ad", "started", `Montando o anúncio ${adIndex + 1}/${adCount} do conjunto ${adgroupId} com os produtos do catálogo.`);
-            const creative = {
-              ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
-              ad_text: body?.ad_text?.trim() || campaignName,
-              call_to_action: body?.cta || "LEARN_MORE",
-              // Catalog sales ads require the catalog identifier on the
-              // creative itself. The incompatible video/source options stay
-              // intentionally omitted below.
-              catalog_id: catalogId,
-              // Required by TikTok for Product Sales catalog creatives.
-              product_specific_type: "ALL",
-              // TikTok validates this on the creative, even when the
-              // ad-group already uses VIDEO shopping ads. This is the same
-              // SINGLE_VIDEO mode selected in the RocketKT working payload.
-              ad_format: "SINGLE_VIDEO",
-              identity_id: identityId,
-              identity_type: identityType ?? "CUSTOMIZED_USER",
-              ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
-              // Keep catalog-video/source fields omitted. They are separate
-              // from ad_format and were the cause of the former
-              // "Incorrect source field" response.
-              operation_status: "DISABLE",
-            };
-
             const adResponse = await createAd(token, {
               advertiser_id: advertiserId,
               adgroup_id: adgroupId,
-              creatives: [creative],
+              creatives: [{
+                ad_name: `${campaignLabel} · Anúncio ${String(adIndex + 1).padStart(2, "0")}`,
+                ad_text: body?.ad_text?.trim() || campaignName,
+                call_to_action: body?.cta || "LEARN_MORE",
+                catalog_id: catalogId,
+                identity_id: identityId,
+                identity_type: identityType ?? "CUSTOMIZED_USER",
+                ...(identityType === "BC_AUTH_TT" ? { identity_authorized_bc_id: businessCenterId } : {}),
+                // Stable Catalog Video profile used before the creative
+                // simplification: the catalog supplies its own media.
+                product_specific_type: "ALL",
+                dynamic_format: "UNSET",
+                ad_format: "SINGLE_VIDEO",
+                vertical_video_strategy: "CATALOG_VIDEOS",
+                shopping_ads_fallback_type: "SHOPPING_ADS",
+                utm_params: [
+                  { key: "utm_source", value: "tiktok" },
+                  { key: "utm_medium", value: "paid_social" },
+                  { key: "utm_campaign", value: "__CAMPAIGN_NAME__" },
+                  { key: "tt_campaign_id", value: "__CAMPAIGN_ID__" },
+                  { key: "tt_adgroup", value: "__AID_NAME__" },
+                  { key: "tt_adgroup_id", value: "__AID__" },
+                  { key: "utm_content", value: "__CID_NAME__" },
+                  { key: "tt_ad_id", value: "__CID__" },
+                  { key: "tt_placement", value: "__PLACEMENT__" },
+                ],
+                dynamic_destination: "UNSET",
+                operation_status: "DISABLE",
+              }],
             });
             const adId = entityId(adResponse, ["ad_id", "id"]);
             if (!adId) throw new Error(`O TikTok não retornou o ID do anúncio do grupo ${adgroupId}.`);
@@ -627,10 +632,7 @@ export async function POST(request: NextRequest) {
       logs,
     });
   } catch (error) {
-    let message = error instanceof Error ? error.message : "O TikTok não confirmou a publicação.";
-    if (/Unsupported image size/i.test(message)) {
-      message = "A imagem da Identity selecionada é incompatível com Video Shopping Ads. Crie uma nova Identity na aba Contas usando a imagem novamente; o ThorTk agora a otimiza automaticamente para o padrão aceito pelo TikTok.";
-    }
+    const message = error instanceof Error ? error.message : "O TikTok não confirmou a publicação.";
     await log("error", currentStage, "failed", message);
     await emit("failed", { status: "failed", created, logs, error: message });
   } finally {
