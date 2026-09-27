@@ -256,6 +256,7 @@ export default function Home() {
   const [assetDetailsByAdvertiser, setAssetDetailsByAdvertiser] = useState<
     Record<string, Detail>
   >({});
+  const assetRequestsRef = useRef(new Map<string, Promise<void>>());
   const [pixelByAdvertiser, setPixelByAdvertiser] = useState<
     Record<string, string>
   >({});
@@ -820,6 +821,10 @@ export default function Home() {
   const loadAssets = useCallback(
     async (id: string) => {
       if (!id || !overview.connected) return;
+      const existingRequest = assetRequestsRef.current.get(id);
+      if (existingRequest) return existingRequest;
+
+      const request = (async () => {
       setLoading("assets");
       try {
         const response = await fetch(
@@ -863,8 +868,12 @@ export default function Home() {
         }));
         if (id === advertiserId) setDetails(failure);
       } finally {
+        assetRequestsRef.current.delete(id);
         setLoading(null);
       }
+      })();
+      assetRequestsRef.current.set(id, request);
+      return request;
     },
     [advertiserId, overview.connected],
   );
@@ -922,7 +931,22 @@ export default function Home() {
     );
     if (!missing.length) return;
     const timer = window.setTimeout(() => {
-      void Promise.all(missing.map((id) => loadAssets(id)));
+      // TikTok rate-limits pixel/identity reads. Load a small queue instead of
+      // firing every selected advertiser at once; loadAssets also deduplicates
+      // the account currently selected by the operator.
+      void (async () => {
+        const queue = [...missing];
+        const workers = Array.from(
+          { length: Math.min(3, queue.length) },
+          async () => {
+            while (queue.length) {
+              const id = queue.shift();
+              if (id) await loadAssets(id);
+            }
+          },
+        );
+        await Promise.all(workers);
+      })();
     }, 0);
     return () => window.clearTimeout(timer);
   }, [assetDetailsByAdvertiser, loadAssets, selectedAdvertiserIds]);
