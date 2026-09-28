@@ -3,6 +3,11 @@ import fs from "node:fs";
 const path = "src/app/page.tsx";
 let source = fs.readFileSync(path, "utf8");
 
+if (source.includes("const [catalogByBusinessCenter, setCatalogByBusinessCenter]")) {
+  console.log("Per-Business-Center catalog patch already applied to", path);
+  process.exit(0);
+}
+
 function replaceOnce(search, replacement, label) {
   if (!source.includes(search)) {
     throw new Error(`Patch point not found: ${label}`);
@@ -66,7 +71,7 @@ replaceOnce(
 
 replaceOnce(
 `      if (!terminal) throw new Error(\"A conexão terminou antes do TikTok confirmar o resultado da publicação.\");\n      if (liveExecution.status === \"completed\") await loadApiCampaigns(selectedAdvertiserIds);`,
-`      if (!terminal) throw new Error(\"A conexão terminou antes do TikTok confirmar o resultado da publicação.\");\n      if (requestError) throw new Error(requestError);\n      };\n\n      for (const [businessCenterId, advertiserIds] of advertisersByBusinessCenter) {\n        assertLaunchActive: {\n          if (controller.signal.aborted) break assertLaunchActive;\n          await launchBusinessCenter(businessCenterId, advertiserIds);\n        }\n      }\n      if (controller.signal.aborted) throw new DOMException(\"Aborted\", \"AbortError\");\n      liveExecution = {\n        ...liveExecution,\n        status: \"completed\",\n        created: createdTotals,\n        progress: { current: totalOperations, total: totalOperations },\n      };\n      setLaunchExecution(liveExecution);\n      setNotice({\n        tone: \"success\",\n        text: \`\${createdTotals.campaigns} campanha(s), \${createdTotals.adgroups} grupo(s) e \${createdTotals.ads} anúncio(s) confirmados pelo TikTok em \${advertisersByBusinessCenter.size} Business Center(s).\`,\n      });\n      await loadApiCampaigns(selectedAdvertiserIds);`,
+`      if (!terminal) throw new Error(\"A conexão terminou antes do TikTok confirmar o resultado da publicação.\");\n      if (requestError) throw new Error(requestError);\n      };\n\n      for (const [businessCenterId, advertiserIds] of advertisersByBusinessCenter) {\n        if (controller.signal.aborted) break;\n        await launchBusinessCenter(businessCenterId, advertiserIds);\n      }\n      if (controller.signal.aborted) throw new DOMException(\"Aborted\", \"AbortError\");\n      liveExecution = {\n        ...liveExecution,\n        status: \"completed\",\n        created: createdTotals,\n        progress: { current: totalOperations, total: totalOperations },\n      };\n      setLaunchExecution(liveExecution);\n      setNotice({\n        tone: \"success\",\n        text: \`\${createdTotals.campaigns} campanha(s), \${createdTotals.adgroups} grupo(s) e \${createdTotals.ads} anúncio(s) confirmados pelo TikTok em \${advertisersByBusinessCenter.size} Business Center(s).\`,\n      });\n      await loadApiCampaigns(selectedAdvertiserIds);`,
 "finish multi BC launch",
 );
 
@@ -113,13 +118,13 @@ replaceOnce(
 );
 
 replaceOnce(
-`              bc={selectedBc}\n              catalog={selectedCatalog}\n              counts={counts}`, 
+`              bc={selectedBc}\n              catalog={selectedCatalog}\n              counts={counts}`,
 `              catalogSummary={\n                catalogsReady\n                  ? \`\${selectedCatalogs.length} catálogo(s) em \${selectedBusinessCenterIds.length} Business Center(s)\`\n                  : \"Selecione um catálogo para cada BC das contas escolhidas.\"\n              }\n              catalogsReady={catalogsReady}\n              counts={counts}`,
 "LaunchScreen catalog props",
 );
 
 replaceOnce(
-`              catalogCreativeReady={Boolean(catalogId)}`, 
+`              catalogCreativeReady={Boolean(catalogId)}`,
 `              catalogCreativeReady={catalogsReady}`,
 "launch catalog creative readiness",
 );
