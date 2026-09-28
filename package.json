@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/apply-catalog-bc-fix.mjs && next dev",
-    "build": "node scripts/apply-catalog-bc-fix.mjs && next build",
+    "dev": "node scripts/apply-catalog-bc-fix.mjs && node scripts/apply-account-refresh-fix.mjs && next dev",
+    "build": "node scripts/apply-catalog-bc-fix.mjs && node scripts/apply-account-refresh-fix.mjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
